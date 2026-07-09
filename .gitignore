@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Xcode / Swift
+DerivedData/
+.build/
+.swiftpm/
+Packages/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+xcuserdata/
+
+# Editors / local tooling
+.idea/
+.vscode/
+.codex/
+.agents/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+
+# Local documents and notes
+docs/
+*.local.md
+notes/
+
+# Personal / local path based files
+tmp/
+artifacts/
+local/
