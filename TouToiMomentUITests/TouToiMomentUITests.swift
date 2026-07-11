@@ -24,13 +24,39 @@ final class TouToiMomentUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        app.buttons["Pairs"].tap()
+
+        XCTAssertTrue(app.staticTexts["Pairs"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["New Pair"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Kirito ･ Asuna"].waitForExistence(timeout: 2))
+    }
+
+    @MainActor
+    func testPairsFavoriteFilterShowsOnlyFavoritePairs() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Pairs"].tap()
+        app.buttons["Favorite"].tap()
+
+        XCTAssertTrue(app.staticTexts["Yuri ･ Pik"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.staticTexts["Kirito ･ Asuna"].exists)
+    }
+
+    @MainActor
+    func testPairDetailOpensFromPairsList() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Pairs"].tap()
+        app.staticTexts["Kirito ･ Asuna"].tap()
+
+        XCTAssertTrue(app.staticTexts["Pair"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Sword Art Online"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Recent Moments"].waitForExistence(timeout: 2))
     }
 
     @MainActor

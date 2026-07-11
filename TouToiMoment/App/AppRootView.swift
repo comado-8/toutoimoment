@@ -2,15 +2,26 @@ import SwiftUI
 
 struct AppRootView: View {
     @State private var selectedTab: MainTab = .home
+    @State private var navigationPath: [AppRoute] = []
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            AppBackgroundView(theme: .home)
-                .ignoresSafeArea()
+        NavigationStack(path: $navigationPath) {
+            ZStack {
+                AppBackgroundView(theme: .home)
+                    .ignoresSafeArea()
 
-            currentTabView
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
+                currentTabView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            .navigationDestination(for: AppRoute.self) { route in
+                switch route {
+                case .pairDetail(let pairID):
+                    PairDetailView(pairID: pairID)
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             BottomTabBar(selectedTab: $selectedTab)
                 .padding(.bottom, 8)
         }
@@ -21,7 +32,11 @@ struct AppRootView: View {
         switch selectedTab {
         case .home:
             HomeView()
-        case .pairs, .moments, .sources:
+        case .pairs:
+            PairListView { pair in
+                navigationPath.append(.pairDetail(pair.id))
+            }
+        case .moments, .sources:
             PlaceholderTabView(tab: selectedTab)
         }
     }

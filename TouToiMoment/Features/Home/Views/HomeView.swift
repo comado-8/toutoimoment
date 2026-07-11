@@ -7,13 +7,7 @@ struct HomeView: View {
         GeometryReader { geometry in
             let profile = HomeLayoutProfile(size: geometry.size)
 
-            ViewThatFits(in: .vertical) {
-                fixedHeightContent(profile: profile)
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    scrollContent(profile: profile.compactFallback)
-                }
-            }
+            fixedHeightContent(profile: profile)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
@@ -113,34 +107,6 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private func scrollContent(profile: HomeLayoutProfile) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            topNavigation
-                .padding(.horizontal, AppTheme.Spacing.screen)
-                .padding(.top, profile.topPadding)
-
-            greetingBlock(profile: profile)
-                .padding(.horizontal, AppTheme.Spacing.screen)
-                .padding(.top, profile.greetingTop)
-
-            RecordRippleButton(
-                momentCount: HomePreviewData.registeredMomentCount,
-                onSequenceCompleted: {}
-            )
-                .frame(maxWidth: .infinity)
-                .padding(.top, profile.recordTop)
-
-            Text(AppStrings.homeRecordMomentHint)
-                .font(AppTypography.momentQuoteJapanese())
-                .kerning(0.4)
-                .foregroundStyle(Color(hex: "#7F7BE0", opacity: 0.84))
-                .frame(maxWidth: .infinity)
-                .padding(.top, profile.hintTop)
-
-            momentsSection(profile: profile)
-        }
-        .padding(.bottom, profile.scrollBottomPadding)
-    }
 }
 
 private struct HomeLayoutProfile {
@@ -152,7 +118,6 @@ private struct HomeLayoutProfile {
     let sectionTop: CGFloat
     let flexSpacerMin: CGFloat
     let bottomClearance: CGFloat
-    let scrollBottomPadding: CGFloat
 
     init(size: CGSize) {
         if size.height < 760 {
@@ -161,83 +126,19 @@ private struct HomeLayoutProfile {
             greetingBottom = 10
             recordTop = 0
             hintTop = 8
-            sectionTop = 24
+            sectionTop = 12
             flexSpacerMin = 14
-            bottomClearance = 94
-            scrollBottomPadding = 116
+            bottomClearance = 122
         } else {
             topPadding = 8
             greetingTop = 8
             greetingBottom = 16
             recordTop = 2
             hintTop = 8
-            sectionTop = 30
+            sectionTop = 18
             flexSpacerMin = 24
-            bottomClearance = 104
-            scrollBottomPadding = 124
+            bottomClearance = 132
         }
-    }
-
-    var compactFallback: HomeLayoutProfile {
-        HomeLayoutProfile(
-            topPadding: 4,
-            greetingTop: 6,
-            greetingBottom: 10,
-            recordTop: 0,
-            hintTop: 8,
-            sectionTop: 24,
-            flexSpacerMin: 14,
-            bottomClearance: 94,
-            scrollBottomPadding: 116
-        )
-    }
-
-    private init(
-        topPadding: CGFloat,
-        greetingTop: CGFloat,
-        greetingBottom: CGFloat,
-        recordTop: CGFloat,
-        hintTop: CGFloat,
-        sectionTop: CGFloat,
-        flexSpacerMin: CGFloat,
-        bottomClearance: CGFloat,
-        scrollBottomPadding: CGFloat
-    ) {
-        self.topPadding = topPadding
-        self.greetingTop = greetingTop
-        self.greetingBottom = greetingBottom
-        self.recordTop = recordTop
-        self.hintTop = hintTop
-        self.sectionTop = sectionTop
-        self.flexSpacerMin = flexSpacerMin
-        self.bottomClearance = bottomClearance
-        self.scrollBottomPadding = scrollBottomPadding
-    }
-}
-
-private struct FavoriteStarIcon: View {
-    enum Variant {
-        case `default`
-        case on
-    }
-
-    var variant: Variant = .default
-
-    var body: some View {
-        ZStack {
-            Image("FavoriteStarOn")
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-                .opacity(variant == .on ? 1 : 0.18)
-
-            Image(variant == .on ? "FavoriteStarOn" : "FavoriteStar")
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-        }
-        .frame(width: 20, height: 21)
-        .padding(.top, 1)
     }
 }
 

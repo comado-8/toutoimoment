@@ -76,6 +76,150 @@
         }
       }
     },
+    "pair_detail.back_button" : {
+      "comment" : "Accessibility label for returning from pair detail.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "戻る"
+          }
+        }
+      }
+    },
+    "pair_detail.cta.new_moment" : {
+      "comment" : "Button label for adding a new moment from pair detail.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New Moment"
+          }
+        }
+      }
+    },
+    "pair_detail.edit_button" : {
+      "comment" : "Accessibility label for the pair detail edit button.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "編集"
+          }
+        }
+      }
+    },
+    "pair_detail.section.recent_moments" : {
+      "comment" : "Section title for recent moments on the pair detail screen.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Recent Moments"
+          }
+        }
+      }
+    },
+    "pair_detail.stat.last" : {
+      "comment" : "Stat label for the most recent entry placeholder.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Last"
+          }
+        }
+      }
+    },
+    "pair_detail.stat.moments" : {
+      "comment" : "Stat label for the total moments count.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Moments"
+          }
+        }
+      }
+    },
+    "pair_detail.stat.since" : {
+      "comment" : "Stat label for the since placeholder.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Since"
+          }
+        }
+      }
+    },
+    "pair_detail.title" : {
+      "comment" : "Navigation title for the pair detail screen.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pair"
+          }
+        }
+      }
+    },
+    "pairs.cta.new_pair" : {
+      "comment" : "Call-to-action card label on the pairs screen.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New Pair"
+          }
+        }
+      }
+    },
+    "pairs.favorite_toggle.label_format" : {
+      "comment" : "Accessibility label for the pair favorite toggle button.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ のお気に入り状態を切り替える"
+          }
+        }
+      }
+    },
+    "pairs.filter.all" : {
+      "comment" : "Filter chip for showing all pairs.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "pairs.filter.favorite" : {
+      "comment" : "Filter chip for showing favorite pairs.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Favorite"
+          }
+        }
+      }
+    },
     "tab.home" : {
       "comment" : "Bottom tab title for the home screen.",
       "localizations" : {

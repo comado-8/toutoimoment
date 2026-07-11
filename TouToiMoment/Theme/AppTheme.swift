@@ -11,6 +11,10 @@ enum AppTheme {
         static let ctaScreen: CGFloat = 16
     }
 
+    enum Layout {
+        static let bottomTabBarReservedHeight: CGFloat = 128
+    }
+
     enum Radius {
         static let small: CGFloat = 12
         static let medium: CGFloat = 18

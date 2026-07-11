@@ -1,79 +1,76 @@
 import SwiftUI
 
-struct LegacyPairListRowModel: Identifiable {
-    let id = UUID()
-    let name: String
-    let favoriteCount: Int
-    let leadingDot: Color
-    let trailingDot: Color
-}
-
 struct PairListCard: View {
-    let pair: LegacyPairListRowModel
+    let pair: PairListCardModel
+    let onTap: () -> Void
+    let onToggleFavorite: () -> Void
 
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
-            VStack(spacing: 5) {
-                Circle()
-                    .fill(pair.leadingDot)
-                    .frame(width: 10, height: 10)
+            pairMarker
 
-                Circle()
-                    .fill(pair.trailingDot)
-                    .frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pair.displayName)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+
+                Text(pair.nickname)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color.textSecondary)
+                    .lineLimit(1)
             }
-            .frame(width: 20)
-
-            Text(pair.name)
-                .font(AppTypography.bodyStrong())
-                .foregroundStyle(Color.textPrimary)
 
             Spacer(minLength: AppTheme.Spacing.sm)
 
-            HStack(spacing: 5) {
-                MomentSparkleIcon(color: .white, width: 9, height: 13)
-                Text("\(pair.favoriteCount)")
-                    .font(AppTypography.meta())
+            favoriteCountPill
+
+            Button(action: onToggleFavorite) {
+                FavoriteHeartIcon(isFilled: pair.isFavorite)
             }
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.appPrimarySoft, Color.appPrimary],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            )
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppStrings.pairsFavoriteToggleLabel(name: pair.displayName))
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.appPrimarySoft)
         }
-        .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.vertical, 16)
-        .glassCard()
+        .padding(.leading, 12)
+        .padding(.trailing, 16)
+        .frame(maxWidth: .infinity, minHeight: 105)
+        .glassCard(cornerRadius: 20, fillOpacity: 0.40)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .accessibilityAddTraits(.isButton)
     }
-}
 
-extension LegacyPairListRowModel {
-    static let preview: [LegacyPairListRowModel] = [
-        LegacyPairListRowModel(
-            name: "きりあす",
-            favoriteCount: 12,
-            leadingDot: Color(hex: "#243979"),
-            trailingDot: Color(hex: "#D3522E")
-        ),
-        LegacyPairListRowModel(
-            name: "ロイヨル",
-            favoriteCount: 12,
-            leadingDot: Color(hex: "#243979"),
-            trailingDot: Color(hex: "#D3522E")
+    private var pairMarker: some View {
+        VStack(spacing: 7) {
+            Circle()
+                .fill(pair.leadingColor)
+                .frame(width: 10, height: 10)
+
+            Circle()
+                .fill(pair.trailingColor)
+                .frame(width: 10, height: 10)
+        }
+        .frame(width: 20)
+    }
+
+    private var favoriteCountPill: some View {
+        HStack(spacing: 4) {
+            MomentSparkleIcon(color: .white, width: 9, height: 13)
+
+            Text("\(pair.favoriteCount)")
+                .font(.system(size: 12, weight: .bold))
+        }
+        .foregroundStyle(Color.white)
+        .frame(width: 45, height: 23)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.appPrimarySoft)
         )
-    ]
+    }
 }
 
 #Preview {
@@ -81,7 +78,11 @@ extension LegacyPairListRowModel {
         AppBackgroundView(theme: .home)
             .ignoresSafeArea()
 
-        PairListCard(pair: .preview[0])
+        PairListCard(
+            pair: PairListPreviewData.pairs[0],
+            onTap: {},
+            onToggleFavorite: {}
+        )
             .padding()
     }
 }
