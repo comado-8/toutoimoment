@@ -106,10 +106,10 @@ final class NewMomentStep1ViewModel: ObservableObject {
         mediaType: String,
         totalCount: Int?,
         isFavorite: Bool
-    ) async {
+    ) async -> Bool {
         let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            return
+            return false
         }
 
         do {
@@ -124,8 +124,11 @@ final class NewMomentStep1ViewModel: ObservableObject {
             let option = NewMomentSelectableOption(source: source)
             sourceOptions.insert(option, at: 0)
             selectSource(id: option.id)
+            errorMessage = nil
+            return true
         } catch {
             errorMessage = AppStrings.newMomentStep1LoadError
+            return false
         }
     }
 

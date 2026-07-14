@@ -70,6 +70,7 @@ struct NewMomentStep4View: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .accessibilityHidden(isReactionPickerPresented)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             saveButtonContainer
@@ -257,6 +258,8 @@ struct NewMomentStep4View: View {
                                                 )
                                             }
                                             .buttonStyle(.plain)
+                                            .accessibilityValue(Text(verbatim: viewModel.isReactionSelected(reaction) ? "選択中" : "未選択"))
+                                            .accessibilityAddTraits(viewModel.isReactionSelected(reaction) ? .isSelected : [])
                                         }
                                     }
                                 }
@@ -273,6 +276,7 @@ struct NewMomentStep4View: View {
                 .ignoresSafeArea(edges: .bottom)
             }
         }
+        .accessibilityAddTraits(.isModal)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 

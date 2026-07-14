@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NewMomentStep3View: View {
-    @StateObject private var viewModel: NewMomentStep3ViewModel
+    @ObservedObject private var viewModel: NewMomentStep3ViewModel
     @FocusState private var focusedFieldID: String?
     @State private var keyboardHeight: CGFloat = 0
 
@@ -17,7 +17,7 @@ struct NewMomentStep3View: View {
         onBackToStep1: @escaping () -> Void = {},
         onBackToStep2: @escaping (NewMomentDraft) -> Void = { _ in }
     ) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = ObservedObject(wrappedValue: viewModel)
         self.onContinue = onContinue
         self.onCancel = onCancel
         self.onBackToStep1 = onBackToStep1

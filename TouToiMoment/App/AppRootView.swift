@@ -129,7 +129,6 @@ struct AppRootView: View {
                 return false
             }
         }
-        selectedTab = .home
     }
 
     private func returnToNewMomentStep1() {

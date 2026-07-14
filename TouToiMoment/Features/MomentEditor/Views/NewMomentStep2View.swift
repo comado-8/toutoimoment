@@ -53,6 +53,7 @@ struct NewMomentStep2View: View {
                 .scrollDismissesKeyboard(.interactively)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .accessibilityHidden(isTimestampPickerPresented)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .overlay(alignment: .bottom) {
@@ -288,6 +289,7 @@ struct NewMomentStep2View: View {
                 .ignoresSafeArea(edges: .bottom)
             }
         }
+        .accessibilityAddTraits(.isModal)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 

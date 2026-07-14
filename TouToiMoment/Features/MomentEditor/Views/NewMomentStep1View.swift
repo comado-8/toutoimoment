@@ -77,6 +77,7 @@ struct NewMomentStep1View: View {
     @State private var member2ColorHex = "#F472B6"
     @State private var newSourceName = ""
     @State private var selectedSourceMedium: SourceMediumOption?
+    @State private var isCreatingSource = false
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var focusedField: FormField?
 
@@ -105,23 +106,29 @@ struct NewMomentStep1View: View {
                     .padding(.top, 13)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 8) {
-                        chooseSection
-                        separator
-                        summaryRow(
-                            title: AppStrings.newMomentStep2Title,
-                            subtitle: AppStrings.newMomentStep2Subtitle
-                        )
-                        separator
-                        summaryRow(
-                            title: AppStrings.newMomentStep3Title,
-                            subtitle: AppStrings.newMomentStep3Subtitle
-                        )
-                        separator
-                        summaryRow(
-                            title: AppStrings.newMomentStep4Title,
-                            subtitle: AppStrings.newMomentStep4Subtitle
-                        )
+                    Group {
+                        if let errorMessage = viewModel.errorMessage {
+                            loadErrorView(message: errorMessage)
+                        } else {
+                            VStack(spacing: 8) {
+                                chooseSection
+                                separator
+                                summaryRow(
+                                    title: AppStrings.newMomentStep2Title,
+                                    subtitle: AppStrings.newMomentStep2Subtitle
+                                )
+                                separator
+                                summaryRow(
+                                    title: AppStrings.newMomentStep3Title,
+                                    subtitle: AppStrings.newMomentStep3Subtitle
+                                )
+                                separator
+                                summaryRow(
+                                    title: AppStrings.newMomentStep4Title,
+                                    subtitle: AppStrings.newMomentStep4Subtitle
+                                )
+                            }
+                        }
                     }
                     .padding(.top, 13)
                     .padding(.bottom, 32)
@@ -182,6 +189,35 @@ struct NewMomentStep1View: View {
             activePicker = nil
             activePairColorTarget = nil
         }
+    }
+
+    private func loadErrorView(message: String) -> some View {
+        VStack(spacing: 12) {
+            Text(message)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(hex: "#6B7280"))
+                .multilineTextAlignment(.center)
+
+            Button {
+                Task {
+                    await viewModel.retry()
+                }
+            } label: {
+                Text(AppStrings.newMomentStep1Retry)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.appPrimary)
+                    .padding(.horizontal, 16)
+                    .frame(height: 36)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.white.opacity(0.72))
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.top, 96)
     }
 
     private var header: some View {
@@ -331,7 +367,7 @@ struct NewMomentStep1View: View {
                 .padding(.top, 16)
             }
         }
-        .frame(width: 342, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .zIndex(1)
     }
@@ -601,7 +637,7 @@ struct NewMomentStep1View: View {
                         .foregroundStyle(canSaveNewSource ? Color.appPrimary : Color.appPrimary.opacity(0.35))
                 }
                 .buttonStyle(.plain)
-                .disabled(!canSaveNewSource)
+                .disabled(!canSaveNewSource || isCreatingSource)
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
@@ -964,18 +1000,26 @@ struct NewMomentStep1View: View {
     }
 
     private func saveNewSource() async {
-        guard let medium = selectedSourceMedium else {
+        guard let medium = selectedSourceMedium, !isCreatingSource else {
             return
         }
 
-        await viewModel.createSource(
+        isCreatingSource = true
+        defer {
+            isCreatingSource = false
+        }
+
+        let didCreate = await viewModel.createSource(
             displayName: newSourceName.trimmingCharacters(in: .whitespacesAndNewlines),
             helperText: makeSourceHelperText(medium: medium),
             mediaType: medium.mediaType,
             totalCount: nil,
             isFavorite: false
         )
-        dismissNewSourceSheet()
+
+        if didCreate {
+            dismissNewSourceSheet()
+        }
     }
 
     private func makeSourceHelperText(medium: SourceMediumOption) -> String {
