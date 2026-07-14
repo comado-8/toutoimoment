@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
+    var onCreateMoment: () -> Void = {}
     private let moments = HomePreviewData.moments
 
     var body: some View {
@@ -86,7 +87,7 @@ struct HomeView: View {
 
             RecordRippleButton(
                 momentCount: HomePreviewData.registeredMomentCount,
-                onSequenceCompleted: {}
+                onSequenceCompleted: onCreateMoment
             )
                 .frame(maxWidth: .infinity)
                 .padding(.top, profile.recordTop)

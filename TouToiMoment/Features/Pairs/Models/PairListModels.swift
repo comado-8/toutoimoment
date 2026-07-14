@@ -13,7 +13,7 @@ struct PairListCardModel: Identifiable {
     let nickname: String
     let favoriteCount: Int
     let leadingColor: Color
-    let trailingColor: Color
+    let trailingColor: Color?
     var isFavorite: Bool
 }
 
