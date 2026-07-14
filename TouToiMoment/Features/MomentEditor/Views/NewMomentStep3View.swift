@@ -65,9 +65,11 @@ struct NewMomentStep3View: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .overlay(alignment: .bottom) {
-            nextButtonContainer
-                .ignoresSafeArea(.keyboard, edges: .bottom)
-                .offset(y: keyboardHeight)
+            if shouldShowNextButton {
+                nextButtonContainer
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .offset(y: keyboardHeight)
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
         .toolbar {
@@ -80,6 +82,7 @@ struct NewMomentStep3View: View {
             }
         }
         .animation(.easeOut(duration: 0.24), value: keyboardHeight)
+        .animation(.easeOut(duration: 0.18), value: shouldShowNextButton)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
             updateKeyboardHeight(notification: notification)
         }
@@ -196,6 +199,10 @@ struct NewMomentStep3View: View {
         focusedFieldID == "sceneSummary"
             ? AppStrings.newMomentStep2KeyboardNext
             : AppStrings.newMomentStep2KeyboardDone
+    }
+
+    private var shouldShowNextButton: Bool {
+        focusedFieldID == nil && keyboardHeight == 0
     }
 
     private func updateKeyboardHeight(notification: Notification) {

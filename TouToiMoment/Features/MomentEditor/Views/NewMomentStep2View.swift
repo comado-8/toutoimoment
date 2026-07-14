@@ -57,9 +57,12 @@ struct NewMomentStep2View: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .overlay(alignment: .bottom) {
-            nextButtonContainer
-                .ignoresSafeArea(.keyboard, edges: .bottom)
-                .offset(y: keyboardHeight)
+            if shouldShowNextButton {
+                nextButtonContainer
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .offset(y: keyboardHeight)
+                    .accessibilityHidden(isTimestampPickerPresented)
+            }
         }
         .overlay {
             if isTimestampPickerPresented {
@@ -78,6 +81,7 @@ struct NewMomentStep2View: View {
         }
         .animation(.easeOut(duration: 0.24), value: keyboardHeight)
         .animation(.easeOut(duration: 0.24), value: isTimestampPickerPresented)
+        .animation(.easeOut(duration: 0.18), value: shouldShowNextButton)
         .onTapGesture {
             focusedFieldID = nil
         }
@@ -366,6 +370,10 @@ struct NewMomentStep2View: View {
 
     private var orderedFieldIDs: [String] {
         viewModel.orderedTextFieldIDs
+    }
+
+    private var shouldShowNextButton: Bool {
+        focusedFieldID == nil && keyboardHeight == 0
     }
 
     private func nextFieldID(after id: String) -> String? {

@@ -74,6 +74,7 @@ struct NewMomentStep4View: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             saveButtonContainer
+                .accessibilityHidden(isReactionPickerPresented)
         }
         .overlay {
             if isReactionPickerPresented {
