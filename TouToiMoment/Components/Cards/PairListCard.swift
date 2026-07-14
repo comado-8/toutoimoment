@@ -50,9 +50,11 @@ struct PairListCard: View {
                 .fill(pair.leadingColor)
                 .frame(width: 10, height: 10)
 
-            Circle()
-                .fill(pair.trailingColor)
-                .frame(width: 10, height: 10)
+            if let trailingColor = pair.trailingColor {
+                Circle()
+                    .fill(trailingColor)
+                    .frame(width: 10, height: 10)
+            }
         }
         .frame(width: 20)
     }
