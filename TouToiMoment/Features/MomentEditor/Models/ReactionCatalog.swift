@@ -79,6 +79,14 @@ struct ReactionCatalog {
         sections.flatMap(\.reactions)
     }
 
+    static func reaction(withID id: String) -> NewMomentDraft.SelectedReaction? {
+        reactionsByID[id]
+    }
+
+    private static let reactionsByID = Dictionary(
+        uniqueKeysWithValues: allReactions.map { ($0.id, $0) }
+    )
+
     private static func reaction(
         _ id: String,
         _ section: String,

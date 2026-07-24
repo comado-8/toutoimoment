@@ -2,6 +2,8 @@ import Foundation
 
 enum AppRoute: Hashable {
     case pairDetail(String)
+    case momentDetail(String)
+    case momentEdit(String)
     case newMomentStep1
     case newMomentStep2(NewMomentDraft)
     case newMomentStep3(NewMomentDraft)
@@ -11,9 +13,9 @@ enum AppRoute: Hashable {
 extension AppRoute {
     var hidesBottomTabBar: Bool {
         switch self {
-        case .newMomentStep1, .newMomentStep2, .newMomentStep3, .newMomentStep4:
+        case .momentEdit, .newMomentStep1, .newMomentStep2, .newMomentStep3, .newMomentStep4:
             return true
-        case .pairDetail:
+        case .pairDetail, .momentDetail:
             return false
         }
     }

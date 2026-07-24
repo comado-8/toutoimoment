@@ -4,6 +4,8 @@ struct AppRootView: View {
     @State private var selectedTab: MainTab = .home
     @State private var navigationPath: [AppRoute] = []
     @State private var isDiscardConfirmationPresented = false
+    @State private var isKeyboardVisible = false
+    @StateObject private var momentStore = MomentStore()
     private let pairRepository: any PairRepository = InMemoryPairRepository()
     private let sourceRepository: any SourceRepository = InMemorySourceRepository()
 
@@ -20,6 +22,57 @@ struct AppRootView: View {
                 switch route {
                 case .pairDetail(let pairID):
                     PairDetailView(pairID: pairID)
+                case .momentDetail(let momentID):
+                    MomentDetailView(
+                        store: momentStore,
+                        momentID: momentID,
+                        onEdit: { momentID in
+                            navigationPath.append(.momentEdit(momentID))
+                        },
+                        onDelete: { momentID in
+                            guard navigationPath.last == .momentDetail(momentID) else { return }
+                            navigationPath.removeLast()
+                        },
+                        onOpenPair: { pairID in
+                            navigationPath.append(.pairDetail(pairID))
+                        },
+                        onOpenMoment: { momentID in
+                            navigationPath.append(.momentDetail(momentID))
+                        }
+                    )
+                case .momentEdit(let momentID):
+                    if let moment = momentStore.moment(id: momentID) {
+                        MomentEditView(
+                            viewModel: MomentEditViewModel(
+                                moment: moment,
+                                pairRepository: pairRepository,
+                                sourceRepository: sourceRepository
+                            ),
+                            onSave: { draft, imageChanges in
+                                do {
+                                    return try await momentStore.update(
+                                        id: momentID,
+                                        draft: draft,
+                                        imageChanges: imageChanges
+                                    )
+                                } catch {
+                                    return false
+                                }
+                            },
+                            loadStoredImageData: { image in
+                                try await momentStore.imageData(
+                                    for: image,
+                                    momentID: momentID
+                                )
+                            },
+                            onClose: popMomentEdit
+                        )
+                    } else {
+                        ContentUnavailableView(
+                            AppStrings.momentDetailMissingTitle,
+                            systemImage: "sparkles"
+                        )
+                    }
                 case .newMomentStep1:
                     NewMomentStep1View(
                         viewModel: NewMomentStep1ViewModel(
@@ -53,7 +106,8 @@ struct AppRootView: View {
                 case .newMomentStep4(let draft):
                     NewMomentStep4View(
                         viewModel: NewMomentStep4ViewModel(draft: draft),
-                        onSave: { _ in
+                        onSave: { draft in
+                            momentStore.add(draft: draft)
                             closeNewMomentFlow()
                         },
                         onCancel: requestNewMomentCancellation,
@@ -86,26 +140,64 @@ struct AppRootView: View {
                     .padding(.bottom, 8)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            setKeyboardVisible(true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            setKeyboardVisible(false)
+        }
+        .onChange(of: selectedTab) { oldTab, newTab in
+            guard oldTab != newTab else { return }
+            resetNavigationForTabChange()
+        }
     }
 
     @ViewBuilder
     private var currentTabView: some View {
         switch selectedTab {
         case .home:
-            HomeView {
-                navigationPath.append(.newMomentStep1)
-            }
+            HomeView(
+                momentStore: momentStore,
+                onCreateMoment: { navigationPath.append(.newMomentStep1) },
+                onOpenMoment: { navigationPath.append(.momentDetail($0)) }
+            )
         case .pairs:
             PairListView { pair in
                 navigationPath.append(.pairDetail(pair.id))
             }
-        case .moments, .sources:
+        case .moments:
+            MomentListView(
+                store: momentStore,
+                onCreateMoment: { navigationPath.append(.newMomentStep1) },
+                onOpenMoment: { navigationPath.append(.momentDetail($0)) }
+            )
+        case .sources:
             PlaceholderTabView(tab: selectedTab)
         }
     }
 
     private var shouldShowBottomTabBar: Bool {
-        !(navigationPath.last?.hidesBottomTabBar ?? false)
+        AppChromeVisibility.shouldShowBottomTabBar(
+            navigationHidesBottomTabBar: navigationPath.last?.hidesBottomTabBar ?? false,
+            isKeyboardVisible: isKeyboardVisible
+        )
+    }
+
+    private func setKeyboardVisible(_ isVisible: Bool) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            isKeyboardVisible = isVisible
+        }
+    }
+
+    private func resetNavigationForTabChange() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            navigationPath.removeAll()
+            isDiscardConfirmationPresented = false
+        }
     }
 
     private func pushNewMomentRoute(_ route: AppRoute) {
@@ -125,10 +217,15 @@ struct AppRootView: View {
             switch route {
             case .newMomentStep1, .newMomentStep2, .newMomentStep3, .newMomentStep4:
                 return true
-            case .pairDetail:
+            case .pairDetail, .momentDetail, .momentEdit:
                 return false
             }
         }
+    }
+
+    private func popMomentEdit() {
+        guard case .momentEdit = navigationPath.last else { return }
+        navigationPath.removeLast()
     }
 
     private func returnToNewMomentStep1() {

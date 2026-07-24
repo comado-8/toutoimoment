@@ -52,7 +52,9 @@ final class NewMomentStep1ViewModel: ObservableObject {
         draft.selectPair(
             id: option.id,
             displayName: option.title,
-            nickname: option.subtitle ?? ""
+            nickname: option.subtitle ?? "",
+            leadingColorHex: option.leadingColorHex,
+            trailingColorHex: option.trailingColorHex
         )
     }
 
@@ -77,7 +79,7 @@ final class NewMomentStep1ViewModel: ObservableObject {
         leadingColorHex: String,
         trailingColorHex: String?
     ) {
-        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = PairDisplayNameFormatter.normalized(displayName)
         guard !trimmedName.isEmpty else {
             return
         }
@@ -96,7 +98,9 @@ final class NewMomentStep1ViewModel: ObservableObject {
         draft.selectPair(
             id: option.id,
             displayName: option.title,
-            nickname: option.subtitle ?? option.title
+            nickname: option.subtitle ?? option.title,
+            leadingColorHex: option.leadingColorHex,
+            trailingColorHex: option.trailingColorHex
         )
     }
 

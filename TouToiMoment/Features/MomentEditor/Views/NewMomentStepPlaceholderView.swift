@@ -51,7 +51,7 @@ struct NewMomentStepPlaceholderView: View {
         draft: NewMomentDraft(
             selectedPair: .init(
                 id: "kirito-asuna",
-                displayName: "Kirito ･ Asuna",
+                displayName: "Kirito ・ Asuna",
                 nickname: "きりあす"
             ),
             selectedSource: .init(

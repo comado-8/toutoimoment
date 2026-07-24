@@ -12,6 +12,22 @@ struct NewMomentDraft: Hashable {
         let id: String
         let displayName: String
         let nickname: String
+        let leadingColorHex: String?
+        let trailingColorHex: String?
+
+        init(
+            id: String,
+            displayName: String,
+            nickname: String,
+            leadingColorHex: String? = nil,
+            trailingColorHex: String? = nil
+        ) {
+            self.id = id
+            self.displayName = displayName
+            self.nickname = nickname
+            self.leadingColorHex = leadingColorHex
+            self.trailingColorHex = trailingColorHex
+        }
     }
 
     struct SelectedSource: Hashable {
@@ -37,7 +53,11 @@ struct NewMomentDraft: Hashable {
     var selectedPair: SelectedPair?
     var selectedSource: SelectedSource?
     var contextValues: [ContextValue]
-    var sceneSummary: String
+    private var storedSceneSummary: String
+    var sceneSummary: String {
+        get { storedSceneSummary }
+        set { storedSceneSummary = MomentSceneTextPolicy.limited(newValue) }
+    }
     var heartScream: String
     var selectedReactions: [SelectedReaction]
     private var contextMediaType: String?
@@ -54,7 +74,7 @@ struct NewMomentDraft: Hashable {
         self.selectedPair = selectedPair
         self.selectedSource = selectedSource
         self.contextValues = contextValues
-        self.sceneSummary = sceneSummary
+        self.storedSceneSummary = MomentSceneTextPolicy.limited(sceneSummary)
         self.heartScream = heartScream
         self.selectedReactions = selectedReactions
         self.contextMediaType = contextMediaType
@@ -85,11 +105,19 @@ struct NewMomentDraft: Hashable {
             || !heartScream.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    mutating func selectPair(id: String, displayName: String, nickname: String) {
+    mutating func selectPair(
+        id: String,
+        displayName: String,
+        nickname: String,
+        leadingColorHex: String? = nil,
+        trailingColorHex: String? = nil
+    ) {
         selectedPair = SelectedPair(
             id: id,
             displayName: displayName,
-            nickname: nickname
+            nickname: nickname,
+            leadingColorHex: leadingColorHex,
+            trailingColorHex: trailingColorHex
         )
     }
 

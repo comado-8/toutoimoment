@@ -489,7 +489,7 @@ struct NewMomentStep2View: View {
             draft: NewMomentDraft(
                 selectedPair: .init(
                     id: "levi-erwin",
-                    displayName: "Levi × Erwin",
+                    displayName: "Levi ・ Erwin",
                     nickname: "リヴァエル"
                 ),
                 selectedSource: .init(
