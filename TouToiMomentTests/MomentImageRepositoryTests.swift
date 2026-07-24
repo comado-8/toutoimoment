@@ -83,6 +83,39 @@ struct MomentImageRepositoryTests {
         #expect(try await repository.images(for: "valid").map(\.id) == ["keep", "new"])
     }
 
+    @Test func orphanCleanupIncludesHiddenTemporaryDirectoriesButKeepsFiles() async throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = LocalMomentImageRepository(rootURL: root)
+        let fileManager = FileManager.default
+
+        _ = try await repository.images(for: "valid")
+        let transactionDirectory = root.appendingPathComponent(
+            ".transaction-stale",
+            isDirectory: true
+        )
+        let backupDirectory = root.appendingPathComponent(
+            ".backup-stale",
+            isDirectory: true
+        )
+        try fileManager.createDirectory(
+            at: transactionDirectory,
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(
+            at: backupDirectory,
+            withIntermediateDirectories: true
+        )
+        let hiddenFile = root.appendingPathComponent(".keep-file")
+        #expect(fileManager.createFile(atPath: hiddenFile.path, contents: Data()))
+
+        try await repository.removeOrphans(validMomentIDs: ["valid"])
+
+        #expect(!fileManager.fileExists(atPath: transactionDirectory.path))
+        #expect(!fileManager.fileExists(atPath: backupDirectory.path))
+        #expect(fileManager.fileExists(atPath: hiddenFile.path))
+    }
+
     @Test func editViewModelStagesImagesUntilAChangeSetIsCommitted() {
         var moment = MomentCardModel.preview[0]
         moment.images = [

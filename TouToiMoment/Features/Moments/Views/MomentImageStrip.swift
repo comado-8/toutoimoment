@@ -21,12 +21,17 @@ struct MomentImageStrip: View {
     let onOpen: (String) -> Void
     let onDelete: (String) -> Void
 
-    private let maximumCount = 3
+    private let maximumCount = LocalMomentImageRepository.maximumImageCount
     private let spacing: CGFloat = 12
 
     var body: some View {
         GeometryReader { proxy in
-            let size = min(100, max(72, (proxy.size.width - spacing * 2) / 3))
+            let slotCount = max(1, maximumCount)
+            let totalSpacing = spacing * CGFloat(max(0, slotCount - 1))
+            let size = min(
+                100,
+                max(72, (proxy.size.width - totalSpacing) / CGFloat(slotCount))
+            )
 
             HStack(spacing: spacing) {
                 ForEach(items.prefix(maximumCount)) { item in

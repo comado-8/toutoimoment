@@ -27,6 +27,12 @@
     "home.cta.new_moment" : {
       "comment" : "Primary call-to-action on the home screen.",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Toutoi Moment"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -38,6 +44,12 @@
     "home.greeting.subtitle" : {
       "comment" : "Home greeting subtitle under the main title.",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let’s capture another precious moment today."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -49,6 +61,12 @@
     "home.greeting.title_format" : {
       "comment" : "Home greeting title format with the user's display name.",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hi, %@."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -61,6 +79,12 @@
       "comment" : "Hint below the central home record button.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to capture a new moment +"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -72,6 +96,12 @@
     "home.section.fav_moments" : {
       "comment" : "Section title for favorite moments on the home screen.",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fav Moments"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -83,6 +113,12 @@
     "home.section.top_pairs" : {
       "comment" : "Section title for top pairs on the home screen.",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Top Pairs"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1102,6 +1138,12 @@
       "comment" : "Accessibility label for the add Moment button.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a new Moment"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1114,6 +1156,12 @@
       "comment" : "Accessibility action that shows the Heart face.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Heart"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1126,6 +1174,12 @@
       "comment" : "Accessibility action that shows the Scene face.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Scene"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1138,6 +1192,12 @@
       "comment" : "Empty state title when no Moments match filters.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Moments found"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1150,6 +1210,12 @@
       "comment" : "Heart face label in the Moments display toggle.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heart"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1162,6 +1228,12 @@
       "comment" : "Scene face label in the Moments display toggle.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scene"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1174,6 +1246,12 @@
       "comment" : "Accessibility value for a non-favorite Moment.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1186,6 +1264,12 @@
       "comment" : "Accessibility value for a favorite Moment.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1198,6 +1282,12 @@
       "comment" : "Accessibility label for a Moment favorite button.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle favorite"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1210,6 +1300,12 @@
       "comment" : "Filter that clears all Moment category filters.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1222,6 +1318,12 @@
       "comment" : "Menu option that clears one Moment filter category.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Any"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1234,6 +1336,12 @@
       "comment" : "Pair filter menu title.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1246,6 +1354,12 @@
       "comment" : "Reaction filter menu title.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reaction"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1258,6 +1372,12 @@
       "comment" : "Source filter menu title.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1270,6 +1390,12 @@
       "comment" : "Filter that shows favorite Moments.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",
@@ -1282,6 +1408,12 @@
       "comment" : "Placeholder in the Moments search field.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search moments"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "new",

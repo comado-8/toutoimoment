@@ -133,12 +133,12 @@ enum MomentShareTextFormatter {
 }
 
 extension String {
-    fileprivate var trimmedOrNil: String? {
+    var trimmedOrNil: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    fileprivate var nilIfPlaceholder: String? {
+    var nilIfPlaceholder: String? {
         guard let value = trimmedOrNil, value != "—" else { return nil }
         return value
     }

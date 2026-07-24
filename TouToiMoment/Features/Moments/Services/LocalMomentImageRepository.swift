@@ -107,7 +107,7 @@ actor LocalMomentImageRepository: MomentImageRepository {
         let urls = try fileManager.contentsOfDirectory(
             at: rootURL,
             includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: []
         )
         for url in urls where !validDirectoryNames.contains(url.lastPathComponent) {
             guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {

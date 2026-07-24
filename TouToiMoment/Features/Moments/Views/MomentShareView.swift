@@ -340,20 +340,20 @@ struct MomentShareCard: View {
     }
 
     private var visibleSourceName: String? {
-        return moment.sourceName.shareCardValueIgnoringPlaceholder
+        moment.sourceName.nilIfPlaceholder
     }
 
     private var visibleLocation: String? {
-        MomentContextDisplayFormatter.locationSummary(for: moment).shareCardTrimmedValue
+        MomentContextDisplayFormatter.locationSummary(for: moment).trimmedOrNil
     }
 
     private var visibleTimestamp: String? {
-        MomentContextDisplayFormatter.timestamp(for: moment)?.shareCardTrimmedValue
+        MomentContextDisplayFormatter.timestamp(for: moment)?.trimmedOrNil
     }
 
     private var visiblePairName: String? {
         guard configuration.showsPair else { return nil }
-        return moment.pairName.shareCardValueIgnoringPlaceholder
+        return moment.pairName.nilIfPlaceholder
     }
 
     private var visibleReactionLabels: [String] {
@@ -616,18 +616,6 @@ private struct MomentActivityView: UIViewControllerRepresentable {
         _ uiViewController: UIActivityViewController,
         context: Context
     ) {}
-}
-
-private extension String {
-    var shareCardTrimmedValue: String? {
-        let value = trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? nil : value
-    }
-
-    var shareCardValueIgnoringPlaceholder: String? {
-        guard let value = shareCardTrimmedValue, value != "—" else { return nil }
-        return value
-    }
 }
 
 #Preview("Moment Share") {

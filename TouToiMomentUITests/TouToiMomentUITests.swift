@@ -220,6 +220,7 @@ final class TouToiMomentUITests: XCTestCase {
         sceneEditor.typeText(" その瞬間、二人の間に流れていた空気がゆっくり変わって、言葉にできない気持ちがあふれ出した。")
 
         let saveButton = app.buttons["moment.edit.save"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 2))
         XCTAssertTrue(saveButton.isEnabled)
         saveButton.tap()
 

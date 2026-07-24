@@ -158,9 +158,9 @@ private struct MomentZoomableImagePage: View {
                 }
             }
             .contentShape(Rectangle())
-            .gesture(magnifyGesture)
+            .gesture(magnifyGesture(containerSize: proxy.size))
             .highPriorityGesture(
-                panGesture,
+                panGesture(containerSize: proxy.size),
                 including: scale > 1.001 ? .all : .none
             )
         }
@@ -174,31 +174,65 @@ private struct MomentZoomableImagePage: View {
         }
     }
 
-    private var magnifyGesture: some Gesture {
+    private func magnifyGesture(containerSize: CGSize) -> some Gesture {
         MagnifyGesture()
             .onChanged { value in
                 scale = min(4, max(1, settledScale * value.magnification))
+                offset = clampedOffset(
+                    offset,
+                    scale: scale,
+                    containerSize: containerSize
+                )
                 onZoomStateChange(scale > 1.001)
             }
             .onEnded { _ in
                 settledScale = scale
                 if scale <= 1.001 {
                     resetZoom()
+                } else {
+                    offset = clampedOffset(
+                        offset,
+                        scale: scale,
+                        containerSize: containerSize
+                    )
+                    settledOffset = offset
                 }
             }
     }
 
-    private var panGesture: some Gesture {
+    private func panGesture(containerSize: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
-                offset = CGSize(
-                    width: settledOffset.width + value.translation.width,
-                    height: settledOffset.height + value.translation.height
+                offset = clampedOffset(
+                    CGSize(
+                        width: settledOffset.width + value.translation.width,
+                        height: settledOffset.height + value.translation.height
+                    ),
+                    scale: scale,
+                    containerSize: containerSize
                 )
             }
             .onEnded { _ in
+                offset = clampedOffset(
+                    offset,
+                    scale: scale,
+                    containerSize: containerSize
+                )
                 settledOffset = offset
             }
+    }
+
+    private func clampedOffset(
+        _ proposedOffset: CGSize,
+        scale: CGFloat,
+        containerSize: CGSize
+    ) -> CGSize {
+        let maximumX = max(0, containerSize.width * (scale - 1) / 2)
+        let maximumY = max(0, containerSize.height * (scale - 1) / 2)
+        return CGSize(
+            width: min(max(proposedOffset.width, -maximumX), maximumX),
+            height: min(max(proposedOffset.height, -maximumY), maximumY)
+        )
     }
 
     private func resetZoom() {
@@ -212,12 +246,16 @@ private struct MomentZoomableImagePage: View {
     }
 
     private func resolvedImage() async -> UIImage? {
+        let data: Data
         switch item.source {
-        case .pending(let data):
-            return UIImage(data: data)
+        case .pending(let pendingData):
+            data = pendingData
         case .stored(let image):
-            guard let data = try? await loadStoredData(image) else { return nil }
-            return UIImage(data: data)
+            guard let storedData = try? await loadStoredData(image) else { return nil }
+            data = storedData
         }
+        return await Task.detached(priority: .userInitiated) {
+            UIImage(data: data)
+        }.value
     }
 }

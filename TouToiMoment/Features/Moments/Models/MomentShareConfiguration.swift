@@ -20,13 +20,6 @@ struct MomentShareConfiguration: Equatable {
     }
 
     func heartText(for moment: MomentCardModel) -> String? {
-        moment.heartText.shareTrimmedValue
-    }
-}
-
-extension String {
-    fileprivate var shareTrimmedValue: String? {
-        let value = trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? nil : value
+        moment.heartText.trimmedOrNil
     }
 }
