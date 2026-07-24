@@ -159,7 +159,7 @@ enum AppStrings {
 
     static let newMomentStep1NewPairDisplayNamePlaceholder = String(
         localized: "new_moment.step1.new_pair_display_name_placeholder",
-        defaultValue: "Member 1 • Member 2",
+        defaultValue: "Member 1 ・ Member 2",
         comment: "Placeholder for the generated display name preview in the new pair sheet."
     )
 
@@ -649,6 +649,536 @@ enum AppStrings {
         localized: "home.section.top_pairs",
         defaultValue: "Your Top Pairs",
         comment: "Section title for top pairs on the home screen."
+    )
+
+    static let momentsSearchPlaceholder = String(
+        localized: "moments.search.placeholder",
+        defaultValue: "Search moments",
+        comment: "Placeholder in the Moments search field."
+    )
+
+    static let momentsScene = String(
+        localized: "moments.face.scene",
+        defaultValue: "Scene",
+        comment: "Scene face label in the Moments display toggle."
+    )
+
+    static let momentsHeart = String(
+        localized: "moments.face.heart",
+        defaultValue: "Heart",
+        comment: "Heart face label in the Moments display toggle."
+    )
+
+    static let momentsFilterAll = String(
+        localized: "moments.filter.all",
+        defaultValue: "すべて",
+        comment: "Filter that clears all Moment category filters."
+    )
+
+    static let momentsFilterStar = String(
+        localized: "moments.filter.star",
+        defaultValue: "Star",
+        comment: "Filter that shows favorite Moments."
+    )
+
+    static let momentsFilterPair = String(
+        localized: "moments.filter.pair",
+        defaultValue: "Pair",
+        comment: "Pair filter menu title."
+    )
+
+    static let momentsFilterSource = String(
+        localized: "moments.filter.source",
+        defaultValue: "Source",
+        comment: "Source filter menu title."
+    )
+
+    static let momentsFilterReaction = String(
+        localized: "moments.filter.reaction",
+        defaultValue: "Reaction",
+        comment: "Reaction filter menu title."
+    )
+
+    static let momentsFilterAny = String(
+        localized: "moments.filter.any",
+        defaultValue: "指定なし",
+        comment: "Menu option that clears one Moment filter category."
+    )
+
+    static let momentsEmptyTitle = String(
+        localized: "moments.empty.title",
+        defaultValue: "Momentが見つかりません",
+        comment: "Empty state title when no Moments match filters."
+    )
+
+    static let momentsAddMoment = String(
+        localized: "moments.add.accessibility_label",
+        defaultValue: "新しいMomentを追加",
+        comment: "Accessibility label for the add Moment button."
+    )
+
+    static let momentsFavoriteToggle = String(
+        localized: "moments.favorite.toggle",
+        defaultValue: "Favoriteを切り替える",
+        comment: "Accessibility label for a Moment favorite button."
+    )
+
+    static let momentsFavoriteOn = String(
+        localized: "moments.favorite.on",
+        defaultValue: "ON",
+        comment: "Accessibility value for a favorite Moment."
+    )
+
+    static let momentsFavoriteOff = String(
+        localized: "moments.favorite.off",
+        defaultValue: "OFF",
+        comment: "Accessibility value for a non-favorite Moment."
+    )
+
+    static let momentsShowScene = String(
+        localized: "moments.card.show_scene",
+        defaultValue: "Sceneを表示",
+        comment: "Accessibility action that shows the Scene face."
+    )
+
+    static let momentsShowHeart = String(
+        localized: "moments.card.show_heart",
+        defaultValue: "Heartを表示",
+        comment: "Accessibility action that shows the Heart face."
+    )
+
+    static let momentDetailTitle = String(
+        localized: "moment_detail.title",
+        defaultValue: "Moment",
+        comment: "Navigation title on Moment detail."
+    )
+
+    static let momentDetailMissingTitle = String(
+        localized: "moment_detail.missing",
+        defaultValue: "Momentが見つかりません",
+        comment: "Message shown when a Moment no longer exists."
+    )
+
+    static let momentDetailShare = String(
+        localized: "moment_detail.share",
+        defaultValue: "HeartScreamカードを共有",
+        comment: "Accessibility label for the Moment share action."
+    )
+
+    static let momentDetailMore = String(
+        localized: "moment_detail.more",
+        defaultValue: "その他の操作",
+        comment: "Accessibility label for the Moment detail more menu."
+    )
+
+    static let momentDetailCopyHeart = String(
+        localized: "moment_detail.copy_heart",
+        defaultValue: "HeartScreamをコピー",
+        comment: "Menu action that copies the Moment HeartScream."
+    )
+
+    static let momentDetailHeartCopied = String(
+        localized: "moment_detail.heart_copied",
+        defaultValue: "HeartScreamをコピーしました",
+        comment: "Accessibility announcement after copying a HeartScream."
+    )
+
+    static let momentDetailDelete = String(
+        localized: "moment_detail.delete",
+        defaultValue: "Momentを削除",
+        comment: "Destructive action that deletes a Moment."
+    )
+
+    static let momentDetailDeleteConfirmationTitle = String(
+        localized: "moment_detail.delete_confirmation.title",
+        defaultValue: "このMomentを削除しますか？",
+        comment: "Title for the Moment deletion confirmation."
+    )
+
+    static let momentDetailDeleteConfirmationMessage = String(
+        localized: "moment_detail.delete_confirmation.message",
+        defaultValue: "添付した画像も削除されます。この操作は取り消せません。",
+        comment: "Message for the Moment deletion confirmation."
+    )
+
+    static let momentDetailDeleteErrorMessage = String(
+        localized: "moment_detail.delete_error",
+        defaultValue: "Momentを削除できませんでした。もう一度お試しください。",
+        comment: "Error shown when a Moment cannot be deleted."
+    )
+
+    static let momentDetailEdit = String(
+        localized: "moment_detail.edit",
+        defaultValue: "Momentを編集",
+        comment: "Accessibility label for the Moment edit action."
+    )
+
+    static let momentDetailExpandScene = String(
+        localized: "moment_detail.scene.expand",
+        defaultValue: "全文を表示",
+        comment: "Button that expands a long Scene on Moment detail."
+    )
+
+    static let momentDetailCollapseScene = String(
+        localized: "moment_detail.scene.collapse",
+        defaultValue: "閉じる",
+        comment: "Button that collapses a long Scene on Moment detail."
+    )
+
+    static let sceneCharacterLimitReached = String(
+        localized: "moment.scene.limit_reached",
+        defaultValue: "Sceneは1000文字までです",
+        comment: "Accessibility announcement when Scene reaches its character limit."
+    )
+
+    static func sceneCharacterCount(current: Int, maximum: Int) -> String {
+        String(
+            format: String(
+                localized: "moment.scene.character_count",
+                defaultValue: "%1$d／%2$d文字",
+                comment: "Accessible Scene character count and maximum."
+            ),
+            locale: .current,
+            current,
+            maximum
+        )
+    }
+
+    static let momentEditTitle = String(
+        localized: "moment_edit.title",
+        defaultValue: "Edit Moment",
+        comment: "Navigation title on the Moment editor."
+    )
+
+    static let momentEditBack = String(
+        localized: "moment_edit.back",
+        defaultValue: "Moment詳細へ戻る",
+        comment: "Accessibility label for the Moment editor back button."
+    )
+
+    static let momentEditSave = String(
+        localized: "moment_edit.save",
+        defaultValue: "変更を保存",
+        comment: "Accessibility label for saving Moment edits."
+    )
+
+    static let momentEditDiscardTitle = String(
+        localized: "moment_edit.discard.title",
+        defaultValue: "変更を破棄しますか？",
+        comment: "Title for the discard Moment edits confirmation."
+    )
+
+    static let momentEditDiscardMessage = String(
+        localized: "moment_edit.discard.message",
+        defaultValue: "保存していない変更は失われます。",
+        comment: "Message for the discard Moment edits confirmation."
+    )
+
+    static let momentEditDiscardConfirm = String(
+        localized: "moment_edit.discard.confirm",
+        defaultValue: "変更を破棄",
+        comment: "Destructive action that discards Moment edits."
+    )
+
+    static let momentEditKeepEditing = String(
+        localized: "moment_edit.discard.keep_editing",
+        defaultValue: "編集を続ける",
+        comment: "Action that dismisses the discard confirmation."
+    )
+
+    static let momentEditLoadError = String(
+        localized: "moment_edit.error.load",
+        defaultValue: "選択肢を読み込めませんでした。現在の内容は編集できます。",
+        comment: "Error shown when editor picker options cannot be loaded."
+    )
+
+    static let momentEditSaveError = String(
+        localized: "moment_edit.error.save",
+        defaultValue: "Momentを保存できませんでした。",
+        comment: "Error shown when a Moment edit cannot be saved."
+    )
+
+    static let momentDetailHeartScream = String(
+        localized: "moment_detail.section.heart_scream",
+        defaultValue: "HeartScream",
+        comment: "Heart scream section title on Moment detail."
+    )
+
+    static let momentDetailReaction = String(
+        localized: "moment_detail.section.reaction",
+        defaultValue: "Reaction",
+        comment: "Reaction section title on Moment detail."
+    )
+
+    static let momentDetailSource = String(
+        localized: "moment_detail.section.source",
+        defaultValue: "Source",
+        comment: "Source section title on Moment detail."
+    )
+
+    static let momentDetailSourceName = String(
+        localized: "moment_detail.source.name",
+        defaultValue: "Source",
+        comment: "Label for the source name row on Moment detail."
+    )
+
+    static let momentDetailPair = String(
+        localized: "moment_detail.section.pair",
+        defaultValue: "Pair",
+        comment: "Pair section title on Moment detail."
+    )
+
+    static let momentDetailRelated = String(
+        localized: "moment_detail.section.related",
+        defaultValue: "Related Moments",
+        comment: "Related Moments section title."
+    )
+
+    static let momentDetailDetails = String(
+        localized: "moment_detail.section.details",
+        defaultValue: "Details",
+        comment: "Metadata section title on Moment detail."
+    )
+
+    static let momentDetailCreated = String(
+        localized: "moment_detail.created",
+        defaultValue: "Created",
+        comment: "Label for the Moment creation date."
+    )
+
+    static let momentDetailOpenPairHint = String(
+        localized: "moment_detail.open_pair_hint",
+        defaultValue: "Pairの詳細を表示します。",
+        comment: "Accessibility hint for opening Pair detail from Moment detail."
+    )
+
+    static let momentImageSection = String(
+        localized: "moment_image.section",
+        defaultValue: "Momentの画像",
+        comment: "Accessibility label for the Moment image attachment section."
+    )
+
+    static let momentImageAdd = String(
+        localized: "moment_image.add",
+        defaultValue: "画像を追加",
+        comment: "Action that adds a private image to a Moment."
+    )
+
+    static let momentImageOpen = String(
+        localized: "moment_image.open",
+        defaultValue: "画像を全画面で表示",
+        comment: "Accessibility label for opening a Moment image."
+    )
+
+    static let momentImageDelete = String(
+        localized: "moment_image.delete",
+        defaultValue: "画像を削除",
+        comment: "Destructive action that deletes a Moment image."
+    )
+
+    static let momentImageDeleteHint = String(
+        localized: "moment_image.delete_hint",
+        defaultValue: "長押しすると削除できます。",
+        comment: "Accessibility hint for deleting a Moment image."
+    )
+
+    static let momentImageDeleteConfirmationTitle = String(
+        localized: "moment_image.delete_confirmation.title",
+        defaultValue: "この画像を削除しますか？",
+        comment: "Title for a Moment image deletion confirmation."
+    )
+
+    static let momentImageDeleteConfirmationMessage = String(
+        localized: "moment_image.delete_confirmation.message",
+        defaultValue: "削除した画像は元に戻せません。",
+        comment: "Message for a Moment image deletion confirmation."
+    )
+
+    static let momentImageDeleteCancel = String(
+        localized: "moment_image.delete.cancel",
+        defaultValue: "キャンセル",
+        comment: "Cancel action for image or Moment deletion."
+    )
+
+    static let momentImageErrorTitle = String(
+        localized: "moment_image.error.title",
+        defaultValue: "画像を処理できませんでした",
+        comment: "Title for Moment image import and storage errors."
+    )
+
+    static let momentImageErrorMessage = String(
+        localized: "moment_image.error.message",
+        defaultValue: "別の画像を選ぶか、時間をおいてもう一度お試しください。",
+        comment: "Message for Moment image import and storage errors."
+    )
+
+    static let momentImageDeleteErrorMessage = String(
+        localized: "moment_image.delete_error",
+        defaultValue: "画像を削除できませんでした。もう一度お試しください。",
+        comment: "Message shown when a Moment image cannot be deleted."
+    )
+
+    static let momentImageViewerClose = String(
+        localized: "moment_image.viewer.close",
+        defaultValue: "画像を閉じる",
+        comment: "Accessibility label for closing the Moment image viewer."
+    )
+
+    static func momentImagePage(current: Int, total: Int) -> String {
+        String(
+            format: String(
+                localized: "moment_image.viewer.page_format",
+                defaultValue: "%1$d／%2$d枚目",
+                comment: "Current page and total image count in the Moment image viewer."
+            ),
+            locale: .current,
+            current,
+            total
+        )
+    }
+
+    static let momentEditImagesTitle = String(
+        localized: "moment_edit.images.title",
+        defaultValue: "5 - IMAGES",
+        comment: "Section title for private Moment images in the Moment editor."
+    )
+
+    static func momentDetailMoreFromPair(_ pairName: String) -> String {
+        String(
+            format: String(
+                localized: "moment_detail.more_from_pair_format",
+                defaultValue: "More from %@",
+                comment: "Subheading for additional Moments from the same Pair."
+            ),
+            locale: .current,
+            pairName
+        )
+    }
+
+    static let momentShareClose = String(
+        localized: "moment_share.close",
+        defaultValue: "共有画面を閉じる",
+        comment: "Accessibility label for closing Moment share preview."
+    )
+
+    static let momentShareAction = String(
+        localized: "moment_share.action",
+        defaultValue: "Momentカードを共有",
+        comment: "Accessibility label for sharing a Moment card."
+    )
+
+    static let momentShareActionHint = String(
+        localized: "moment_share.action_hint",
+        defaultValue: "共有先を選択します。",
+        comment: "Accessibility hint for sharing a Moment card."
+    )
+
+    static let momentShareHint = String(
+        localized: "moment_share.hint",
+        defaultValue: "Tap to share",
+        comment: "Hint below the Moment share card."
+    )
+
+    static let momentShareCustomizationTitle = String(
+        localized: "moment_share.customization.title",
+        defaultValue: "カードのカスタマイズ",
+        comment: "Heading above the Moment share card customization controls."
+    )
+
+    static let momentShareInformationTitle = String(
+        localized: "moment_share.information.title",
+        defaultValue: "表示する情報",
+        comment: "Title for Moment share information visibility settings."
+    )
+
+    static let momentShareShowPair = String(
+        localized: "moment_share.information.pair",
+        defaultValue: "Pair",
+        comment: "Toggle label for Pair visibility on Moment share output."
+    )
+
+    static let momentShareShowReaction = String(
+        localized: "moment_share.information.reaction",
+        defaultValue: "Reaction",
+        comment: "Toggle label for Reaction visibility on Moment share output."
+    )
+
+    static let momentShareShowHashtag = String(
+        localized: "moment_share.information.hashtag",
+        defaultValue: "Hashtag",
+        comment: "Toggle label for the TouToiMoment hashtag on Moment share output."
+    )
+
+    static let momentShareCreatedWith = String(
+        localized: "moment_share.created_with",
+        defaultValue: "Created by TouToiMoment",
+        comment: "Brand attribution shown at the bottom of a Moment share card."
+    )
+
+    static let momentShareSavePhoto = String(
+        localized: "moment_share.save_photo",
+        defaultValue: "写真に保存",
+        comment: "Action that saves the Moment share card to Photos."
+    )
+
+    static let momentShareSavingPhoto = String(
+        localized: "moment_share.saving_photo",
+        defaultValue: "保存中",
+        comment: "Progress label while saving a Moment share card to Photos."
+    )
+
+    static let momentShareShare = String(
+        localized: "moment_share.share",
+        defaultValue: "共有する",
+        comment: "Action that opens the system share sheet for a Moment card."
+    )
+
+    static let momentShareSaved = String(
+        localized: "moment_share.saved",
+        defaultValue: "写真に保存しました",
+        comment: "Confirmation shown after saving a Moment share card to Photos."
+    )
+
+    static let momentSharePhotoAccessErrorTitle = String(
+        localized: "moment_share.photo_access_error.title",
+        defaultValue: "写真へのアクセスが必要です",
+        comment: "Title shown when add-only Photos access is unavailable."
+    )
+
+    static let momentSharePhotoAccessErrorMessage = String(
+        localized: "moment_share.photo_access_error.message",
+        defaultValue: "設定で写真への追加を許可してから、もう一度お試しください。",
+        comment: "Message shown when add-only Photos access is unavailable."
+    )
+
+    static let momentSharePhotoSaveErrorTitle = String(
+        localized: "moment_share.photo_save_error.title",
+        defaultValue: "写真を保存できませんでした",
+        comment: "Title shown when saving a Moment share card fails."
+    )
+
+    static let momentSharePhotoSaveErrorMessage = String(
+        localized: "moment_share.photo_save_error.message",
+        defaultValue: "時間をおいて、もう一度お試しください。",
+        comment: "Message shown when saving a Moment share card fails."
+    )
+
+    static let momentShareErrorTitle = String(
+        localized: "moment_share.error.title",
+        defaultValue: "共有カードを作成できませんでした",
+        comment: "Title shown when Moment share image rendering fails."
+    )
+
+    static let momentShareErrorMessage = String(
+        localized: "moment_share.error.message",
+        defaultValue: "時間をおいて、もう一度お試しください。",
+        comment: "Message shown when Moment share image rendering fails."
+    )
+
+    static let momentShareErrorDismiss = String(
+        localized: "moment_share.error.dismiss",
+        defaultValue: "閉じる",
+        comment: "Dismiss action for the Moment share rendering error."
     )
 
     static let pairsNewPair = String(

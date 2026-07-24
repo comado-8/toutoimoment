@@ -4,6 +4,15 @@ import UIKit
 #endif
 
 enum AppTypography {
+    static func momentsTitle() -> Font {
+        customFont(
+            names: ["InstrumentSerif-Regular"],
+            size: 32,
+            relativeTo: .largeTitle,
+            fallback: .system(size: 32, weight: .regular, design: .serif)
+        )
+    }
+
     static func heroTitle() -> Font {
         customFont(
             names: ["InstrumentSerif-Regular"],
@@ -100,6 +109,15 @@ enum AppTypography {
             size: 14,
             relativeTo: .body,
             fallback: .system(size: 14, weight: .regular, design: .serif)
+        )
+    }
+
+    static func momentCardHeart() -> Font {
+        customFont(
+            names: ["ZenKakuGothicNew-Bold", "ZenKakuGothicNew-Medium", "Geist-SemiBold"],
+            size: 14,
+            relativeTo: .body,
+            fallback: .system(size: 14, weight: .bold, design: .default)
         )
     }
 

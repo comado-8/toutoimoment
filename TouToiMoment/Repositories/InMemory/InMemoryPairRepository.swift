@@ -5,7 +5,7 @@ struct InMemoryPairRepository: PairRepository {
         [
             PairSummary(
                 id: "kirito-asuna",
-                displayName: "Kirito ･ Asuna",
+                displayName: "Kirito ・ Asuna",
                 nickname: "きりあす",
                 momentCount: 12,
                 leadingColorHex: "#243979",
@@ -14,7 +14,7 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "yuri-pik",
-                displayName: "Yuri ･ Pik",
+                displayName: "Yuri ・ Pik",
                 nickname: "ゆりぴく",
                 momentCount: 12,
                 leadingColorHex: "#F375AA",
@@ -23,7 +23,7 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "roi-yoru",
-                displayName: "Roi ･ Yoru",
+                displayName: "Roi ・ Yoru",
                 nickname: "ロイヨル",
                 momentCount: 9,
                 leadingColorHex: "#C9A30F",
@@ -32,7 +32,7 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "nakam-gio",
-                displayName: "Nakam ･ Gio",
+                displayName: "Nakam ・ Gio",
                 nickname: "ナカギオ",
                 momentCount: 7,
                 leadingColorHex: "#2F9CCF",
@@ -41,7 +41,7 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "gojo-geto",
-                displayName: "Gojo ･ Geto",
+                displayName: "Gojo ・ Geto",
                 nickname: "五夏",
                 momentCount: 19,
                 leadingColorHex: "#6E5AE6",
@@ -50,7 +50,7 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "rin-haru",
-                displayName: "Rin ･ Haru",
+                displayName: "Rin ・ Haru",
                 nickname: "りんはる",
                 momentCount: 6,
                 leadingColorHex: "#48C2B0",

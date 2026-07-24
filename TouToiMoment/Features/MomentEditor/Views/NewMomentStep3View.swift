@@ -169,6 +169,10 @@ struct NewMomentStep3View: View {
             }
             .frame(height: height)
             .background(NewMomentGlassFieldBackground())
+
+            if id == "sceneSummary" {
+                MomentSceneCharacterCounter(text: value.wrappedValue)
+            }
         }
     }
 

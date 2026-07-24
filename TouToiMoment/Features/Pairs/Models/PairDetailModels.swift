@@ -112,7 +112,7 @@ enum PairDetailPreviewData {
 
     private static let defaultDetail = PairDetailModel(
         id: "kirito-asuna",
-        displayName: "Kirito ･ Asuna",
+        displayName: "Kirito ・ Asuna",
         titleLabel: "Sword Art Online",
         momentCount: 14,
         lastLabel: "2d ago",

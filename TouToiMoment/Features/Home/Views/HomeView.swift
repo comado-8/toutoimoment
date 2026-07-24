@@ -1,8 +1,19 @@
 import SwiftUI
 
 struct HomeView: View {
+    @ObservedObject private var momentStore: MomentStore
     var onCreateMoment: () -> Void = {}
-    private let moments = HomePreviewData.moments
+    var onOpenMoment: (String) -> Void = { _ in }
+
+    init(
+        momentStore: MomentStore,
+        onCreateMoment: @escaping () -> Void = {},
+        onOpenMoment: @escaping (String) -> Void = { _ in }
+    ) {
+        self.momentStore = momentStore
+        self.onCreateMoment = onCreateMoment
+        self.onOpenMoment = onOpenMoment
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -11,6 +22,7 @@ struct HomeView: View {
             fixedHeightContent(profile: profile)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .accessibilityIdentifier("home.screen")
     }
 
     private var topNavigation: some View {
@@ -60,10 +72,11 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(moments) { moment in
+                    ForEach(momentStore.favoriteMoments.prefix(3)) { moment in
                         MomentCard(
                             model: moment,
-                            layout: .homeRail
+                            layout: .homeRail,
+                            onOpen: { onOpenMoment(moment.id) }
                         )
                     }
                 }
@@ -148,7 +161,7 @@ private struct HomeLayoutProfile {
         AppBackgroundView(theme: .home)
             .ignoresSafeArea()
 
-        HomeView()
+        HomeView(momentStore: MomentStore())
 
         BottomTabBar(selectedTab: .constant(.home))
             .padding(.bottom, 8)

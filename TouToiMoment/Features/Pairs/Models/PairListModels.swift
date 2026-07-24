@@ -21,7 +21,7 @@ enum PairListPreviewData {
     static let pairs: [PairListCardModel] = [
         PairListCardModel(
             id: "kirito-asuna",
-            displayName: "Kirito ･ Asuna",
+            displayName: "Kirito ・ Asuna",
             nickname: "きりあす",
             favoriteCount: 12,
             leadingColor: Color(hex: "#243979"),
@@ -30,7 +30,7 @@ enum PairListPreviewData {
         ),
         PairListCardModel(
             id: "yuri-pik",
-            displayName: "Yuri ･ Pik",
+            displayName: "Yuri ・ Pik",
             nickname: "ゆりぴく",
             favoriteCount: 12,
             leadingColor: Color(hex: "#F375AA"),
@@ -39,7 +39,7 @@ enum PairListPreviewData {
         ),
         PairListCardModel(
             id: "roi-yoru",
-            displayName: "Roi･ Yoru",
+            displayName: "Roi ・ Yoru",
             nickname: "ロイヨル",
             favoriteCount: 12,
             leadingColor: Color(hex: "#C9A30F"),
@@ -48,7 +48,7 @@ enum PairListPreviewData {
         ),
         PairListCardModel(
             id: "nakam-gio",
-            displayName: "Nakam･ Gio",
+            displayName: "Nakam ・ Gio",
             nickname: "ナカギオ",
             favoriteCount: 12,
             leadingColor: Color(hex: "#2F9CCF"),

@@ -4,6 +4,7 @@ struct PairListCard: View {
     let pair: PairListCardModel
     let onTap: () -> Void
     let onToggleFavorite: () -> Void
+    var showsFavoriteControls = true
 
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
@@ -15,21 +16,25 @@ struct PairListCard: View {
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
 
-                Text(pair.nickname)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Color.textSecondary)
-                    .lineLimit(1)
+                if !pair.nickname.isEmpty {
+                    Text(pair.nickname)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: AppTheme.Spacing.sm)
 
-            favoriteCountPill
+            if showsFavoriteControls {
+                favoriteCountPill
 
-            Button(action: onToggleFavorite) {
-                FavoriteHeartIcon(isFilled: pair.isFavorite)
+                Button(action: onToggleFavorite) {
+                    FavoriteHeartIcon(isFilled: pair.isFavorite)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppStrings.pairsFavoriteToggleLabel(name: pair.displayName))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(AppStrings.pairsFavoriteToggleLabel(name: pair.displayName))
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))

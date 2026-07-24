@@ -1070,7 +1070,7 @@ struct NewMomentStep1View: View {
             return member1
         }
 
-        return "\(member1) • \(member2)"
+        return PairDisplayNameFormatter.joined(member1, member2)
     }
 
     private var resolvedPairDisplayName: String {
