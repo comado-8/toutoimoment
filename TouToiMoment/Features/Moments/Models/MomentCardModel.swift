@@ -18,41 +18,125 @@ struct MomentCardModel: Identifiable {
     }
 
     let id: String
+    let title: String?
     let sceneText: String
     let heartText: String
     let caption: String
-    let pairID: String?
-    let pairName: String
-    let sourceID: String?
-    let sourceName: String
-    let mediaType: String?
+    var pairID: String?
+    var pairName: String
+    var pairMemberNames: [String]
+    var sourceID: String?
+    var sourceName: String
+    var mediaType: String?
+    var episodeID: String? = nil
+    var episodeLocatorValues: [LocatorValue] = []
     let contextValues: [ContextValue]
     let reactionIDs: [String]
     let reactionLabels: [String]
     var images: [MomentImage] = []
-    let leadingDotColor: Color
-    let trailingDotColor: Color
+    var leadingDotColor: Color
+    var trailingDotColor: Color
+    var momentDate: MomentDate
     let createdAt: Date
     var isFavorite: Bool
 
+    init(
+        id: String,
+        title: String? = nil,
+        sceneText: String,
+        heartText: String,
+        caption: String,
+        pairID: String?,
+        pairName: String,
+        pairMemberNames: [String] = [],
+        sourceID: String?,
+        sourceName: String,
+        mediaType: String?,
+        episodeID: String? = nil,
+        episodeLocatorValues: [LocatorValue] = [],
+        contextValues: [ContextValue],
+        reactionIDs: [String],
+        reactionLabels: [String],
+        images: [MomentImage] = [],
+        leadingDotColor: Color,
+        trailingDotColor: Color,
+        momentDate: MomentDate? = nil,
+        createdAt: Date,
+        isFavorite: Bool
+    ) {
+        self.id = id
+        self.title = MomentTitlePolicy.normalized(title)
+        self.sceneText = sceneText
+        self.heartText = heartText
+        self.caption = caption
+        self.pairID = pairID
+        self.pairName = pairName
+        self.pairMemberNames = pairMemberNames
+        self.sourceID = sourceID
+        self.sourceName = sourceName
+        self.mediaType = mediaType
+        self.episodeID = episodeID
+        self.episodeLocatorValues = episodeLocatorValues
+        self.contextValues = contextValues
+        self.reactionIDs = reactionIDs
+        self.reactionLabels = reactionLabels
+        self.images = images
+        self.leadingDotColor = leadingDotColor
+        self.trailingDotColor = trailingDotColor
+        self.momentDate = momentDate ?? MomentDate(date: createdAt)
+        self.createdAt = createdAt
+        self.isFavorite = isFavorite
+    }
+
+    var episodeDisplayLabel: String? {
+        guard !episodeLocatorValues.isEmpty else { return nil }
+        let schema = SourceLocatorSchema.schema(
+            for: mediaType ?? SourceLocatorSchema.fallbackMediaType
+        ) ?? .fallback
+        return schema.episodeDisplayName(for: episodeLocatorValues).nilIfPlaceholder
+    }
+
+    var cardSourceLabel: String {
+        sourceName.nilIfPlaceholder ?? "—"
+    }
+
+    var cardLocationLabel: String {
+        episodeDisplayLabel
+            ?? MomentContextDisplayFormatter.cardLabel(for: self)
+            ?? "—"
+    }
+
+    /// Compatibility name for call sites that need the card's compact location.
     var episodeLabel: String {
-        MomentContextDisplayFormatter.cardLabel(for: self) ?? "—"
+        cardLocationLabel
     }
 
     var glowPaletteIndex: Int {
         MomentGlowPalette.index(for: id)
     }
 
+    var sceneNote: String { sceneText }
+
+    var displayHeading: String {
+        if let title = MomentTitlePolicy.normalized(title) { return title }
+        let note = sceneNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !note.isEmpty { return note }
+        let heart = heartText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return heart.isEmpty ? "—" : heart
+    }
+
     var searchableText: String {
         ([
+            title ?? "",
             sceneText,
             heartText,
             caption,
-            episodeLabel,
+            episodeDisplayLabel ?? "",
+            cardLocationLabel,
             pairName,
             sourceName,
             MomentContextDisplayFormatter.compactSummary(for: self)
-        ] + reactionLabels)
+        ] + pairMemberNames + reactionLabels)
             .joined(separator: " ")
     }
 }
@@ -82,7 +166,8 @@ extension MomentCardModel {
             sourceID: "source-school-trip",
             sourceName: "修学旅行で仲良くないグループに...",
             mediaType: "anime",
-            contextValues: animeContext(episode: "3", timestamp: "00:18:42"),
+            episodeLocatorValues: animeEpisode(3),
+            contextValues: animeContext(timestamp: "00:18:42"),
             reactionIDs: ["emotional.naita"],
             reactionLabels: ["😭 泣いた"],
             leadingDotColor: Color(hex: "#46C1B1"),
@@ -100,7 +185,8 @@ extension MomentCardModel {
             sourceID: "source-school-trip",
             sourceName: "修学旅行で仲良くないグループに...",
             mediaType: "anime",
-            contextValues: animeContext(episode: "3", timestamp: "00:21:05"),
+            episodeLocatorValues: animeEpisode(3),
+            contextValues: animeContext(timestamp: "00:21:05"),
             reactionIDs: ["positive.kyun"],
             reactionLabels: ["🥰 キュン"],
             leadingDotColor: Color(hex: "#46C1B1"),
@@ -118,7 +204,8 @@ extension MomentCardModel {
             sourceID: "source-school-trip",
             sourceName: "修学旅行で仲良くないグループに...",
             mediaType: "anime",
-            contextValues: animeContext(episode: "6", timestamp: "00:14:22"),
+            episodeLocatorValues: animeEpisode(6),
+            contextValues: animeContext(timestamp: "00:14:22"),
             reactionIDs: ["positive.kyun"],
             reactionLabels: ["🥰 キュン"],
             leadingDotColor: Color(hex: "#46C1B1"),
@@ -136,7 +223,8 @@ extension MomentCardModel {
             sourceID: "source-school-trip",
             sourceName: "修学旅行で仲良くないグループに...",
             mediaType: "anime",
-            contextValues: animeContext(episode: "6", timestamp: "00:32:18"),
+            episodeLocatorValues: animeEpisode(6),
+            contextValues: animeContext(timestamp: "00:32:18"),
             reactionIDs: ["emotional.naita"],
             reactionLabels: ["😭 泣いた"],
             leadingDotColor: Color(hex: "#46C1B1"),
@@ -154,14 +242,108 @@ extension MomentCardModel {
             sourceID: "source-summer-drama",
             sourceName: "真夏のドラマ",
             mediaType: "tv_drama",
-            contextValues: [
-                .init(key: "episode", value: "第8話"),
-                .init(key: "timestamp", value: "00:26:40")
-            ],
+            episodeLocatorValues: animeEpisode(8),
+            contextValues: [.init(key: "timestamp", value: "00:26:40")],
             reactionIDs: ["excited.shougeki"],
             reactionLabels: ["🤯 衝撃"],
             leadingDotColor: Color(hex: "#8B91F4"),
             trailingDotColor: Color(hex: "#F18AB8"),
+            createdAt: previewDate,
+            isFavorite: true
+        ),
+        MomentCardModel(
+            id: "moment-solo-leveling-unassigned",
+            sceneText: "立ち上がった、その瞬間。",
+            heartText: "ここから全部変わるんだ……！",
+            caption: "Solo Leveling 第2期",
+            pairID: "pair-kei-yu",
+            pairName: "慧 ・ 悠",
+            sourceID: "solo-leveling",
+            sourceName: "Solo Leveling 第2期",
+            mediaType: "anime",
+            contextValues: animeContext(timestamp: "00:04:18"),
+            reactionIDs: ["excited.shougeki"],
+            reactionLabels: ["🤯 衝撃"],
+            leadingDotColor: Color(hex: "#7467E8"),
+            trailingDotColor: Color(hex: "#9B8CF2"),
+            createdAt: previewDate,
+            isFavorite: false
+        ),
+        MomentCardModel(
+            id: "moment-solo-leveling-ep08-eye-contact",
+            sceneText: "That eye contact—every rewatch hits different.",
+            heartText: "That eye contact—every rewatch hits different.",
+            caption: "The Monarch Awakens",
+            pairID: nil,
+            pairName: "Jinwoo ・ Cha Hae-In",
+            sourceID: "solo-leveling",
+            sourceName: "Solo Leveling 第2期",
+            mediaType: "anime",
+            episodeID: "solo-leveling-ep08",
+            episodeLocatorValues: animeEpisode(8),
+            contextValues: animeContext(timestamp: "00:18:42"),
+            reactionIDs: ["positive.kyun"],
+            reactionLabels: ["🥰 キュン"],
+            leadingDotColor: Color(hex: "#7467E8"),
+            trailingDotColor: Color(hex: "#F18AB8"),
+            createdAt: previewDate,
+            isFavorite: false
+        ),
+        MomentCardModel(
+            id: "moment-solo-leveling-ep08-crying",
+            sceneText: "Crying at the same moment again.",
+            heartText: "Crying at the same moment again.",
+            caption: "The Monarch Awakens",
+            pairID: nil,
+            pairName: "Jinwoo ・ Cha Hae-In",
+            sourceID: "solo-leveling",
+            sourceName: "Solo Leveling 第2期",
+            mediaType: "anime",
+            episodeID: "solo-leveling-ep08",
+            episodeLocatorValues: animeEpisode(8),
+            contextValues: animeContext(timestamp: "00:20:15"),
+            reactionIDs: ["emotional.naita"],
+            reactionLabels: ["😭 泣いた"],
+            leadingDotColor: Color(hex: "#7467E8"),
+            trailingDotColor: Color(hex: "#F18AB8"),
+            createdAt: previewDate,
+            isFavorite: true
+        ),
+        MomentCardModel(
+            id: "moment-solo-leveling-ep08-final-look",
+            sceneText: "That final look. Still devastates me.",
+            heartText: "That final look. Still devastates me.",
+            caption: "The Monarch Awakens",
+            pairID: nil,
+            pairName: "Jinwoo ・ Cha Hae-In",
+            sourceID: "solo-leveling",
+            sourceName: "Solo Leveling 第2期",
+            mediaType: "anime",
+            episodeID: "solo-leveling-ep08",
+            episodeLocatorValues: animeEpisode(8),
+            contextValues: animeContext(timestamp: "01:08:44"),
+            reactionIDs: ["emotional.setsunai"],
+            reactionLabels: ["🥺 切ない"],
+            leadingDotColor: Color(hex: "#7467E8"),
+            trailingDotColor: Color(hex: "#F18AB8"),
+            createdAt: previewDate,
+            isFavorite: false
+        ),
+        MomentCardModel(
+            id: "moment-special-event",
+            sceneText: "ステージに二人が揃った瞬間",
+            heartText: "この景色をずっと覚えていたい",
+            caption: "Special Event",
+            pairID: "pair-sora-haru",
+            pairName: "空 ・ 春",
+            sourceID: "special-event-2026",
+            sourceName: "Special Event",
+            mediaType: "event_fanmeeting",
+            contextValues: [],
+            reactionIDs: ["emotional.naita"],
+            reactionLabels: ["😭 泣いた"],
+            leadingDotColor: Color(hex: "#7BC8C5"),
+            trailingDotColor: Color(hex: "#F18484"),
             createdAt: previewDate,
             isFavorite: true
         ),
@@ -187,10 +369,14 @@ extension MomentCardModel {
 
     private static let previewDate = Date(timeIntervalSince1970: 1_769_040_000)
 
-    private static func animeContext(episode: String, timestamp: String) -> [ContextValue] {
+    private static func animeContext(timestamp: String) -> [ContextValue] {
+        [.init(key: "timestamp", value: timestamp)]
+    }
+
+    private static func animeEpisode(_ number: Int) -> [LocatorValue] {
         [
-            .init(key: "episode", value: episode),
-            .init(key: "timestamp", value: timestamp)
+            .init(key: "episode_kind", value: "regular"),
+            .init(key: "episode", value: String(number))
         ]
     }
 }

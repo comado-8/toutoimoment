@@ -2,15 +2,21 @@ import SwiftUI
 
 struct HomeView: View {
     @ObservedObject private var momentStore: MomentStore
+    @ObservedObject private var profileStore: ProfileStore
+    var onOpenProfile: () -> Void = {}
     var onCreateMoment: () -> Void = {}
     var onOpenMoment: (String) -> Void = { _ in }
 
     init(
         momentStore: MomentStore,
+        profileStore: ProfileStore,
+        onOpenProfile: @escaping () -> Void = {},
         onCreateMoment: @escaping () -> Void = {},
         onOpenMoment: @escaping (String) -> Void = { _ in }
     ) {
         self.momentStore = momentStore
+        self.profileStore = profileStore
+        self.onOpenProfile = onOpenProfile
         self.onCreateMoment = onCreateMoment
         self.onOpenMoment = onOpenMoment
     }
@@ -27,18 +33,12 @@ struct HomeView: View {
 
     private var topNavigation: some View {
         HStack {
-            Button(action: {}) {
-                ZStack {
-                    Circle()
-                        .fill(Color.appPrimarySoft)
-                        .frame(width: 40, height: 40)
-
-                    Image(systemName: "person")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(Color.white)
-                }
+            Button(action: onOpenProfile) {
+                ProfileAvatarView(color: profileStore.profile.avatarColor, size: 40)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(AppStrings.profileTitle)
+            .accessibilityIdentifier("home.profile")
 
             Spacer()
         }
@@ -47,7 +47,7 @@ struct HomeView: View {
 
     private func greetingBlock(profile: HomeLayoutProfile) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(AppStrings.homeGreetingTitle(name: HomePreviewData.greetingName))
+            Text(AppStrings.homeGreetingTitle(name: profileStore.profile.nickname))
                 .font(AppTypography.heroTitle())
                 .foregroundStyle(Color.textPrimary)
 
@@ -157,11 +157,16 @@ private struct HomeLayoutProfile {
 }
 
 #Preview {
+    let dataStore = AppDataStore(isStoredInMemoryOnly: true)
+
     ZStack(alignment: .bottom) {
         AppBackgroundView(theme: .home)
             .ignoresSafeArea()
 
-        HomeView(momentStore: MomentStore())
+        HomeView(
+            momentStore: dataStore.momentStore,
+            profileStore: dataStore.profileStore
+        )
 
         BottomTabBar(selectedTab: .constant(.home))
             .padding(.bottom, 8)

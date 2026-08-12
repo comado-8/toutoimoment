@@ -31,7 +31,36 @@ final class TouToiMomentUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Pairs"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["New Pair"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Kirito ・ Asuna"].waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["pairs.card.kirito-asuna"]
+                .firstMatch
+                .waitForExistence(timeout: 2)
+        )
+    }
+
+    @MainActor
+    func testProfileDrawerOpensAndDismissesFromTheDimmedArea() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["home.profile"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["profile.drawer"].waitForExistence(timeout: 2))
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        XCTAssertFalse(app.descendants(matching: .any)["profile.drawer"].waitForExistence(timeout: 1))
+    }
+
+    @MainActor
+    func testProfileDrawerRoutesToSettingsAndPremium() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["home.profile"].tap()
+        app.buttons["profile.drawer.settings"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.screen"].waitForExistence(timeout: 2))
+
+        app.buttons["settings.background"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["premium.screen"].waitForExistence(timeout: 2))
     }
 
     @MainActor
@@ -42,8 +71,16 @@ final class TouToiMomentUITests: XCTestCase {
         app.buttons["Pairs"].tap()
         app.buttons["Favorite"].tap()
 
-        XCTAssertTrue(app.staticTexts["Yuri ・ Pik"].waitForExistence(timeout: 2))
-        XCTAssertFalse(app.staticTexts["Kirito ・ Asuna"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["pairs.card.yuri-pik"]
+                .firstMatch
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["pairs.card.kirito-asuna"]
+                .firstMatch
+                .exists
+        )
     }
 
     @MainActor
@@ -52,11 +89,224 @@ final class TouToiMomentUITests: XCTestCase {
         app.launch()
 
         app.buttons["Pairs"].tap()
-        app.staticTexts["Kirito ・ Asuna"].tap()
+        app.descendants(matching: .any)["pairs.card.kirito-asuna"].firstMatch.tap()
 
         XCTAssertTrue(app.staticTexts["Pair"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Sword Art Online"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Recent Moments"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Moments"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["pair_detail.edit"].exists)
+
+        let moreButton = app.buttons["pair_detail.more"]
+        XCTAssertTrue(moreButton.exists)
+        moreButton.tap()
+        XCTAssertTrue(app.buttons["pair_detail.delete"].waitForExistence(timeout: 2))
+    }
+
+    @MainActor
+    func testEpisodeUnsupportedSourceShowsDirectMomentAndOpensDetail() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Sources"].tap()
+        let sourceCard = app.descendants(matching: .any)["sources.card.special-event-2026"]
+        for _ in 0..<5 {
+            if sourceCard.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(sourceCard.waitForExistence(timeout: 2))
+        sourceCard.tap()
+
+        XCTAssertTrue(app.staticTexts["Moments"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.staticTexts["Episodes"].exists)
+
+        let momentCard = app.descendants(matching: .any)[
+            "source_detail.moment.moment-special-event"
+        ]
+        XCTAssertTrue(momentCard.waitForExistence(timeout: 2))
+        momentCard.tap()
+
+        XCTAssertTrue(app.staticTexts["Moment"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["この景色をずっと覚えていたい"].exists)
+    }
+
+    @MainActor
+    func testEpisodeDetailSwitchesTabsAndOnlyMomentCardNavigates() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Sources"].tap()
+        let sourceCard = app.descendants(matching: .any)["sources.card.solo-leveling"]
+        XCTAssertTrue(sourceCard.waitForExistence(timeout: 2))
+        sourceCard.tap()
+
+        let episodeCard = app.buttons["source_detail.episode.solo-leveling-ep08"]
+        XCTAssertTrue(episodeCard.waitForExistence(timeout: 2))
+        episodeCard.tap()
+
+        XCTAssertTrue(app.navigationBars["Episode"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["episode_detail.hero"]
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(app.buttons["episode_detail.start_watching"].exists)
+        XCTAssertTrue(app.buttons["episode_detail.edit"].exists)
+        XCTAssertTrue(app.buttons["episode_detail.more"].exists)
+        XCTAssertTrue(app.buttons["episode_detail.add_moment"].exists)
+        XCTAssertTrue(app.buttons["Home"].exists)
+
+        app.buttons["episode_detail.edit"].tap()
+        XCTAssertTrue(
+            app.buttons["new_episode.cancel"].waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["new_episode.episode"].exists
+        )
+        app.buttons["new_episode.cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Episode"].waitForExistence(timeout: 2))
+
+        app.buttons["episode_detail.start_watching"].tap()
+        app.buttons["episode_detail.more"].tap()
+        XCTAssertTrue(app.buttons["episode_detail.save_timeline"].exists)
+        XCTAssertTrue(app.buttons["episode_detail.delete"].exists)
+        app.buttons["episode_detail.save_timeline"].tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["episode_timeline_export.view"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(
+            app.buttons["episode_timeline_export.save_image"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(app.buttons["episode_timeline_export.save_pdf"].exists)
+        app.buttons["episode_timeline_export.close"].tap()
+        XCTAssertTrue(app.navigationBars["Episode"].waitForExistence(timeout: 2))
+        app.buttons["episode_detail.add_moment"].tap()
+        XCTAssertTrue(
+            app.staticTexts["New TouToi Moment"].waitForExistence(timeout: 2)
+        )
+        app.buttons["閉じる"].tap()
+        XCTAssertTrue(app.navigationBars["Episode"].waitForExistence(timeout: 2))
+
+        let tabs = app.descendants(matching: .any)["episode_detail.tabs"]
+        XCTAssertTrue(tabs.waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.staticTexts["episode_detail.timeline.title"]
+                .waitForExistence(timeout: 2)
+        )
+
+        app.buttons["episode_detail.tab.watchHistory"].tap()
+        XCTAssertFalse(app.staticTexts["episode_detail.timeline.title"].exists)
+        app.buttons["episode_detail.more"].tap()
+        XCTAssertFalse(app.buttons["episode_detail.save_timeline"].exists)
+        XCTAssertTrue(app.buttons["episode_detail.delete"].exists)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let historyCard = app.descendants(matching: .any)[
+            "episode_detail.history.solo-ep08-session-1"
+        ]
+        XCTAssertTrue(historyCard.waitForExistence(timeout: 2))
+        historyCard.tap()
+        XCTAssertTrue(app.navigationBars["Watch History"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["watch_history_detail.summary"]
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["watch_history_detail.live_log"]
+                .waitForExistence(timeout: 2)
+        )
+        let moreButton = app.buttons["watch_history_detail.more"]
+        XCTAssertTrue(moreButton.exists)
+        moreButton.tap()
+        XCTAssertTrue(
+            app.buttons["watch_history_detail.save_live_log"]
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(app.buttons["watch_history_detail.delete"].exists)
+        app.buttons["watch_history_detail.save_live_log"].tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["live_log_export.view"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(
+            app.buttons["live_log_export.save_image"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(app.buttons["live_log_export.save_pdf"].exists)
+        app.buttons["live_log_export.close"].tap()
+        XCTAssertTrue(
+            app.navigationBars["Watch History"].waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(app.buttons["Home"].exists)
+
+        app.navigationBars["Watch History"].buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Episode"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["episode_detail.tab.moments"].exists)
+        XCTAssertTrue(app.buttons["Home"].exists)
+
+        app.buttons["episode_detail.tab.moments"].tap()
+        XCTAssertTrue(
+            app.staticTexts["episode_detail.timeline.title"]
+                .waitForExistence(timeout: 2)
+        )
+        let momentCard = app.descendants(matching: .any)[
+            "episode_detail.moment.moment-solo-leveling-ep08-eye-contact"
+        ]
+        XCTAssertTrue(momentCard.waitForExistence(timeout: 2))
+        momentCard.tap()
+        XCTAssertTrue(app.staticTexts["Moment"].waitForExistence(timeout: 2))
+    }
+
+    @MainActor
+    func testEpisodeDetailWithoutMomentsHidesTimelineHeading() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Sources"].tap()
+        let sourceCard = app.descendants(matching: .any)["sources.card.solo-leveling"]
+        XCTAssertTrue(sourceCard.waitForExistence(timeout: 2))
+        sourceCard.tap()
+
+        let episodeCard = app.buttons["source_detail.episode.solo-leveling-ep07"]
+        XCTAssertTrue(episodeCard.waitForExistence(timeout: 2))
+        episodeCard.tap()
+
+        XCTAssertTrue(app.navigationBars["Episode"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["episode_detail.moments.empty"]
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertFalse(app.staticTexts["episode_detail.timeline.title"].exists)
+    }
+
+    @MainActor
+    func testStreamingSourceShowsRequiredPlatformChoicesAndOtherField() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Sources"].tap()
+        app.buttons["sources.new_source"].tap()
+
+        let streamingMedium = app.buttons["new_source.medium.streaming"]
+        for _ in 0..<4 {
+            if streamingMedium.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(streamingMedium.waitForExistence(timeout: 2))
+        streamingMedium.tap()
+
+        XCTAssertTrue(
+            app.buttons["new_source.streaming_platform.youtube"]
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(app.buttons["new_source.streaming_platform.instagram"].exists)
+        XCTAssertTrue(app.buttons["new_source.streaming_platform.twitch"].exists)
+
+        app.buttons["new_source.streaming_platform.other"].tap()
+        XCTAssertTrue(
+            app.textFields["new_source.streaming_platform.other_name"]
+                .waitForExistence(timeout: 2)
+        )
+        XCTAssertFalse(app.buttons["new_source.save"].isEnabled)
     }
 
     @MainActor
@@ -99,6 +349,34 @@ final class TouToiMomentUITests: XCTestCase {
         dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
         XCTAssertTrue(lastCard.waitForExistence(timeout: 2))
         XCTAssertLessThan(lastCard.frame.maxY, addButton.frame.minY)
+    }
+
+    @MainActor
+    func testNewMomentStartsWithRequiredHeartScreamAndKeepsItInDetails() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Moments"].tap()
+        app.buttons["moments.add"].tap()
+
+        let heartEditor = app.textViews["new_moment.heart_scream.input"]
+        let heartNext = app.buttons["new_moment.heart_scream.next"]
+        XCTAssertTrue(heartEditor.waitForExistence(timeout: 2))
+        XCTAssertFalse(heartNext.isEnabled)
+
+        heartEditor.tap()
+        heartEditor.typeText("尊い……！")
+        XCTAssertTrue(heartNext.isEnabled)
+        heartNext.tap()
+
+        let sceneNext = app.buttons["new_moment.scene.next"]
+        XCTAssertTrue(sceneNext.waitForExistence(timeout: 2))
+        XCTAssertTrue(sceneNext.isEnabled)
+        sceneNext.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["new_moment.details"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["尊い……！"].exists)
+        XCTAssertFalse(app.buttons["new_moment.details.save"].isEnabled)
     }
 
     @MainActor
@@ -160,6 +438,18 @@ final class TouToiMomentUITests: XCTestCase {
         XCTAssertTrue(app.buttons["moment.image.add.0"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["moment.image.add.1"].exists)
         XCTAssertTrue(app.buttons["moment.image.add.2"].exists)
+        let memoriesTitle = app.staticTexts["Fan Memories"]
+        let memoriesDescription = app.staticTexts[
+            "聖地巡りやグッズなど、Momentにまつわる推し活の写真を残してみよう。"
+        ]
+        let heartTitle = app.staticTexts["HeartScream"]
+        let reactionTitle = app.staticTexts["Reaction"]
+        XCTAssertTrue(memoriesTitle.exists)
+        XCTAssertTrue(memoriesDescription.exists)
+        XCTAssertTrue(heartTitle.exists)
+        XCTAssertTrue(reactionTitle.exists)
+        XCTAssertGreaterThan(reactionTitle.frame.minY, heartTitle.frame.maxY)
+        XCTAssertGreaterThan(memoriesTitle.frame.minY, reactionTitle.frame.maxY)
 
         let moreButton = app.buttons["moment.detail.more"]
         XCTAssertTrue(moreButton.waitForExistence(timeout: 2))
@@ -180,16 +470,12 @@ final class TouToiMomentUITests: XCTestCase {
         closeButton.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["moment.detail.hero"].waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.staticTexts["moment.detail.hero.date"].waitForExistence(timeout: 2)
+        )
 
         let details = app.descendants(matching: .any)["moment.detail.details"]
-        let detailScroll = app.scrollViews["moment.detail.scroll"]
-        XCTAssertTrue(detailScroll.waitForExistence(timeout: 2))
-        for _ in 0..<4 {
-            detailScroll.swipeUp()
-        }
-        XCTAssertTrue(details.exists)
-        XCTAssertGreaterThan(details.frame.minY, 0)
-        XCTAssertLessThan(details.frame.maxY, app.buttons["Home"].frame.minY)
+        XCTAssertFalse(details.exists)
 
         app.buttons["Home"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["home.screen"].waitForExistence(timeout: 2))
@@ -212,7 +498,7 @@ final class TouToiMomentUITests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["moment.edit.form"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.buttons["Home"].exists)
-        XCTAssertTrue(app.buttons["moment.image.add.0"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["moment.image.add.0"].exists)
 
         let sceneEditor = app.textViews["moment.edit.scene"]
         XCTAssertTrue(sceneEditor.waitForExistence(timeout: 2))

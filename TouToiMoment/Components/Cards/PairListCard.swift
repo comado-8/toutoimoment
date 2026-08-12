@@ -27,7 +27,7 @@ struct PairListCard: View {
             Spacer(minLength: AppTheme.Spacing.sm)
 
             if showsFavoriteControls {
-                favoriteCountPill
+                momentCountPill
 
                 Button(action: onToggleFavorite) {
                     FavoriteHeartIcon(isFilled: pair.isFavorite)
@@ -54,30 +54,39 @@ struct PairListCard: View {
             Circle()
                 .fill(pair.leadingColor)
                 .frame(width: 10, height: 10)
+                .overlay {
+                    Circle().stroke(Color.black.opacity(0.16), lineWidth: 0.75)
+                }
 
             if let trailingColor = pair.trailingColor {
                 Circle()
                     .fill(trailingColor)
                     .frame(width: 10, height: 10)
+                    .overlay {
+                        Circle().stroke(Color.black.opacity(0.16), lineWidth: 0.75)
+                    }
             }
         }
         .frame(width: 20)
     }
 
-    private var favoriteCountPill: some View {
+    private var momentCountPill: some View {
         HStack(spacing: 4) {
             MomentSparkleIcon(color: .white, width: 9, height: 13)
 
-            Text("\(pair.favoriteCount)")
+            Text("\(pair.momentCount)")
                 .font(.system(size: 12, weight: .bold))
+                .monospacedDigit()
         }
         .foregroundStyle(Color.white)
-        .frame(width: 45, height: 23)
+        .padding(.horizontal, 10)
+        .frame(minWidth: 45, minHeight: 23)
         .background(
             Capsule(style: .continuous)
-                .fill(Color.appPrimarySoft)
+                .fill(Color.appPrimary)
         )
     }
+
 }
 
 #Preview {

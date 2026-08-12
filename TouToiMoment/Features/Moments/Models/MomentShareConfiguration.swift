@@ -20,6 +20,6 @@ struct MomentShareConfiguration: Equatable {
     }
 
     func heartText(for moment: MomentCardModel) -> String? {
-        moment.heartText.trimmedOrNil
+        moment.displayHeading.trimmedOrNil
     }
 }

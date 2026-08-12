@@ -1,448 +1,549 @@
 import Foundation
 
-enum LocatorInputKind: Hashable {
-    case text
-    case number
+enum LocatorInputKind: Hashable, Codable {
+    case integer
+    case decimal
     case timestamp
+    case date
+    case choice
+}
+
+struct LocatorOption: Identifiable, Hashable, Codable {
+    let id: String
+    let label: String
+}
+
+struct LocatorValue: Identifiable, Hashable, Codable {
+    let key: String
+    var value: String
+
+    var id: String { key }
+}
+
+struct LocatorField: Identifiable, Hashable {
+    let key: String
+    let label: String
+    let placeholder: String
+    let inputKind: LocatorInputKind
+    let unit: String?
+    let options: [LocatorOption]
+    let defaultValue: String?
+
+    var id: String { key }
+
+    init(
+        key: String,
+        label: String,
+        placeholder: String,
+        inputKind: LocatorInputKind,
+        unit: String? = nil,
+        options: [LocatorOption] = [],
+        defaultValue: String? = nil
+    ) {
+        self.key = key
+        self.label = label
+        self.placeholder = placeholder
+        self.inputKind = inputKind
+        self.unit = unit
+        self.options = options
+        self.defaultValue = defaultValue
+    }
+}
+
+enum LocatorValuePolicy {
+    static let maximumIntegerValue = 99_999
+    static let maximumDecimalValue = Decimal(string: "99999.99")!
+    static let maximumIntegralDigits = 5
+    static let maximumFractionalDigits = 2
+
+    static func normalized(_ value: String, for field: LocatorField) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch field.inputKind {
+        case .integer, .decimal:
+            return normalizedNumberCharacters(trimmed)
+        case .timestamp:
+            return normalizedTimestamp(trimmed) ?? trimmed
+        case .date, .choice:
+            return trimmed
+        }
+    }
+
+    static func isValid(_ value: String, for field: LocatorField) -> Bool {
+        let normalized = normalized(value, for: field)
+        guard !normalized.isEmpty else { return true }
+
+        switch field.inputKind {
+        case .integer:
+            guard normalized.allSatisfy(\.isNumber), let number = Int(normalized) else {
+                return false
+            }
+            return normalized.count <= maximumIntegralDigits
+                && number >= 1
+                && number <= maximumIntegerValue
+        case .decimal:
+            let parts = normalized.split(separator: ".", omittingEmptySubsequences: false)
+            guard
+                parts.count <= 2,
+                parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) }),
+                parts[0].count <= maximumIntegralDigits,
+                (parts.count == 1 || parts[1].count <= maximumFractionalDigits),
+                let number = Decimal(string: normalized, locale: Locale(identifier: "en_US_POSIX"))
+            else {
+                return false
+            }
+            return number >= 0 && number <= maximumDecimalValue
+        case .timestamp:
+            return normalizedTimestamp(normalized) != nil
+        case .date:
+            return isoDateFormatter.date(from: normalized) != nil
+        case .choice:
+            return field.options.contains(where: { $0.id == normalized })
+        }
+    }
+
+    static func valueMap(
+        from values: [LocatorValue],
+        fields: [LocatorField]
+    ) -> [String: String] {
+        let source = Dictionary(
+            values.map { ($0.key, $0.value) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        return Dictionary(uniqueKeysWithValues: fields.map { field in
+            let rawValue = source[field.key] ?? field.defaultValue ?? ""
+            return (field.key, normalized(rawValue, for: field))
+        })
+    }
+
+    static func values(
+        from map: [String: String],
+        fields: [LocatorField]
+    ) -> [LocatorValue] {
+        fields.map { field in
+            LocatorValue(
+                key: field.key,
+                value: normalized(map[field.key] ?? field.defaultValue ?? "", for: field)
+            )
+        }
+    }
+
+    static func formattedTimestamp(hour: Int, minute: Int, second: Int) -> String {
+        String(
+            format: "%02d:%02d:%02d",
+            min(max(hour, 0), 99),
+            min(max(minute, 0), 59),
+            min(max(second, 0), 59)
+        )
+    }
+
+    static func timestampComponents(_ value: String) -> (hour: Int, minute: Int, second: Int)? {
+        guard let normalized = normalizedTimestamp(value) else { return nil }
+        let parts = normalized.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return (parts[0], parts[1], parts[2])
+    }
+
+    private static func normalizedNumberCharacters(_ value: String) -> String {
+        value.unicodeScalars.map { scalar -> String in
+            switch scalar.value {
+            case 0xFF10...0xFF19:
+                return UnicodeScalar(scalar.value - 0xFF10 + 0x30).map(String.init) ?? ""
+            case 0xFF0E:
+                return "."
+            case 0x2212, 0xFF0D:
+                return "-"
+            default:
+                return String(scalar)
+            }
+        }
+        .joined()
+    }
+
+    private static func normalizedTimestamp(_ value: String) -> String? {
+        let normalized = normalizedNumberCharacters(value)
+        let parts = normalized.split(separator: ":", omittingEmptySubsequences: false)
+        guard
+            (2...3).contains(parts.count),
+            parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) })
+        else {
+            return nil
+        }
+        let numbers = parts.compactMap { Int($0) }
+        guard numbers.count == parts.count else { return nil }
+        let hour = parts.count == 3 ? numbers[0] : 0
+        let minute = parts.count == 3 ? numbers[1] : numbers[0]
+        let second = parts.count == 3 ? numbers[2] : numbers[1]
+        guard (0...99).contains(hour), (0...59).contains(minute), (0...59).contains(second) else {
+            return nil
+        }
+        return formattedTimestamp(hour: hour, minute: minute, second: second)
+    }
+
+    private static let isoDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 }
 
 struct SourceLocatorSchema: Identifiable, Hashable {
-    struct ContextField: Identifiable, Hashable {
-        let key: String
-        let label: String
-        let placeholder: String
-        let inputKind: LocatorInputKind
-        let unit: String?
+    typealias ContextField = LocatorField
 
-        var id: String { key }
-    }
-
-    struct LocatorLevel: Hashable {
-        let label: String
-        let example: String
-        let inputKind: LocatorInputKind
-
-        init(
-            label: String,
-            example: String,
-            inputKind: LocatorInputKind = .text
-        ) {
-            self.label = label
-            self.example = example
-            self.inputKind = inputKind
-        }
+    enum EpisodeRequirement: Hashable {
+        case none
+        case all(Set<String>)
+        case any(Set<String>)
     }
 
     let mediaType: String
     let mediaLabelJa: String
-    let locatorLevels: [LocatorLevel]
-    let timeOrPositionLabel: String?
-    let timeOrPositionExample: String?
-    let timeOrPositionInputKind: LocatorInputKind
+    let sourceNameExample: String
+    let episodeFields: [LocatorField]
+    let episodeRequirement: EpisodeRequirement
+    let momentLocationFields: [LocatorField]
 
     var id: String { mediaType }
-    static let fallbackMediaType = "other"
-
-    var contextFieldRows: [[ContextField]] {
-        Self.contextFieldRows(for: mediaType)
+    var supportsEpisodes: Bool { !episodeFields.isEmpty }
+    var locationContextFieldRows: [[LocatorField]] {
+        momentLocationFields.map { [$0] }
+    }
+    var contextFieldRows: [[LocatorField]] {
+        locationContextFieldRows
     }
 
-    init(
-        mediaType: String,
-        mediaLabelJa: String,
-        locatorLevels: [LocatorLevel],
-        timeOrPositionLabel: String?,
-        timeOrPositionExample: String?,
-        timeOrPositionInputKind: LocatorInputKind = .text
-    ) {
-        self.mediaType = mediaType
-        self.mediaLabelJa = mediaLabelJa
-        self.locatorLevels = locatorLevels
-        self.timeOrPositionLabel = timeOrPositionLabel
-        self.timeOrPositionExample = timeOrPositionExample
-        self.timeOrPositionInputKind = timeOrPositionInputKind
+    static let fallbackMediaType = "other"
+
+    func initialEpisodeValues() -> [LocatorValue] {
+        episodeFields.map {
+            LocatorValue(key: $0.key, value: $0.defaultValue ?? "")
+        }
+    }
+
+    func normalizedEpisodeValues(_ values: [LocatorValue]) -> [LocatorValue] {
+        let map = LocatorValuePolicy.valueMap(from: values, fields: episodeFields)
+        return LocatorValuePolicy.values(from: map, fields: episodeFields)
+    }
+
+    func isValidEpisodeValues(_ values: [LocatorValue]) -> Bool {
+        guard supportsEpisodes else { return false }
+        let map = LocatorValuePolicy.valueMap(from: values, fields: episodeFields)
+        guard episodeFields.allSatisfy({
+            LocatorValuePolicy.isValid(map[$0.key] ?? "", for: $0)
+        }) else {
+            return false
+        }
+
+        switch episodeRequirement {
+        case .none:
+            return true
+        case .all(let keys):
+            return keys.allSatisfy { !(map[$0] ?? "").isEmpty }
+        case .any(let keys):
+            return keys.contains { !(map[$0] ?? "").isEmpty }
+        }
+    }
+
+    func episodeDisplayName(for values: [LocatorValue]) -> String {
+        let map = LocatorValuePolicy.valueMap(from: values, fields: episodeFields)
+        switch mediaType {
+        case "anime", "tv_drama":
+            return numberedEpisodeName(
+                kind: map["episode_kind"] ?? "regular",
+                number: map["episode"] ?? ""
+            )
+        case "manga":
+            return joined([
+                unitValue(map["volume"], unit: "巻"),
+                chapterName(kind: map["manga_kind"] ?? "regular", number: map["chapter"] ?? "", unit: "話")
+            ])
+        case "novel":
+            return joined([
+                unitValue(map["volume"], unit: "巻"),
+                chapterName(kind: map["novel_kind"] ?? "regular", number: map["chapter"] ?? "", unit: "章")
+            ])
+        case "radio_podcast":
+            let number = map["episode"] ?? ""
+            let kind = map["radio_kind"] ?? "regular"
+            let numberText = number.isEmpty
+                ? nil
+                : (kind == "special" ? "特別回 \(number)" : "#\(number)")
+            return joined([numberText, map["date"]?.nilIfEmpty])
+        case "voice_drama":
+            let number = map["track"] ?? ""
+            guard !number.isEmpty else { return "" }
+            return map["track_kind"] == "bonus" ? "Bonus Track \(number)" : "Track \(number)"
+        default:
+            return ""
+        }
+    }
+
+    func formattedMomentValue(_ value: LocatorValue) -> String {
+        guard let field = momentLocationFields.first(where: { $0.key == value.key }) else {
+            return value.value
+        }
+        let normalized = LocatorValuePolicy.normalized(value.value, for: field)
+        guard !normalized.isEmpty else { return "" }
+        if field.inputKind == .choice {
+            return field.options.first(where: { $0.id == normalized })?.label ?? normalized
+        }
+        if let unit = field.unit {
+            return "\(normalized)\(unit)"
+        }
+        return normalized
     }
 
     static let all: [SourceLocatorSchema] = [
-        SourceLocatorSchema(
-            mediaType: "anime",
-            mediaLabelJa: "アニメ",
-            locatorLevels: [
-                .init(label: "Season", example: "Season 3", inputKind: .number),
-                .init(label: "Episode", example: "EP15", inputKind: .number),
-                .init(label: "Scene/Chapter", example: "Aパート / Bパート"),
+        schema(
+            "anime", "アニメ", "例：Solo Leveling 第2期",
+            episode: [
+                choice("episode_kind", "種類", [
+                    option("regular", "通常回"), option("special", "特別編"),
+                    option("ova", "OVA／OAD"), option("recap", "総集編"),
+                ]),
+                decimal("episode", "話数", "12", unit: "話"),
             ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "00:18:42",
-            timeOrPositionInputKind: .timestamp
+            requirement: .all(["episode"]),
+            moment: [timestamp]
         ),
-        SourceLocatorSchema(
-            mediaType: "tv_drama",
-            mediaLabelJa: "ドラマ・TV番組",
-            locatorLevels: [
-                .init(label: "Season", example: "Season 1", inputKind: .number),
-                .init(label: "Episode/回", example: "第5話 / #05", inputKind: .number),
-                .init(label: "Corner", example: "トークパート"),
+        schema(
+            "tv_drama", "ドラマ・TV番組", "例：番組名 Season 2",
+            episode: [
+                choice("episode_kind", "種類", [
+                    option("regular", "通常回"), option("special", "特別編"),
+                ]),
+                decimal("episode", "話数・放送回", "5", unit: "話"),
             ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "00:23:10",
-            timeOrPositionInputKind: .timestamp
+            requirement: .all(["episode"]),
+            moment: [timestamp]
         ),
-        SourceLocatorSchema(
-            mediaType: "movie",
-            mediaLabelJa: "映画",
-            locatorLevels: [
-                .init(label: "Chapter", example: "Chapter 7", inputKind: .number),
-                .init(label: "Scene", example: "駅の別れ"),
+        schema("movie", "映画", "例：作品名（字幕版）", moment: [timestamp]),
+        schema(
+            "manga", "漫画・コミック", "例：ONE PIECE",
+            episode: [
+                choice("manga_kind", "種類", [
+                    option("regular", "通常話"), option("extra", "番外編"),
+                    option("special", "特別編"),
+                ]),
+                integer("volume", "巻数", "3", unit: "巻"),
+                decimal("chapter", "話数", "42", unit: "話"),
             ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "01:12:30",
-            timeOrPositionInputKind: .timestamp
+            requirement: .any(["volume", "chapter"]),
+            moment: [page]
         ),
-        SourceLocatorSchema(
-            mediaType: "manga",
-            mediaLabelJa: "漫画・コミック",
-            locatorLevels: [
-                .init(label: "Volume", example: "8巻", inputKind: .number),
-                .init(label: "Chapter/話", example: "第42話", inputKind: .number),
-                .init(label: "Page", example: "p.126", inputKind: .number),
-                .init(label: "Panel", example: "3コマ目", inputKind: .number),
+        schema(
+            "novel", "小説・ラノベ", "例：作品名",
+            episode: [
+                choice("novel_kind", "種類", [
+                    option("regular", "通常章"), option("prologue", "プロローグ"),
+                    option("epilogue", "エピローグ"), option("extra", "番外編"),
+                ]),
+                integer("volume", "巻数", "3", unit: "巻"),
+                decimal("chapter", "章数", "4", unit: "章"),
             ],
-            timeOrPositionLabel: "Page/Panel",
-            timeOrPositionExample: "p.126 3コマ目"
+            requirement: .any(["volume", "chapter"]),
+            moment: [page]
         ),
-        SourceLocatorSchema(
-            mediaType: "novel",
-            mediaLabelJa: "小説・ラノベ",
-            locatorLevels: [
-                .init(label: "Volume", example: "3巻", inputKind: .number),
-                .init(label: "Chapter", example: "第4章", inputKind: .number),
-                .init(label: "Page", example: "p.88", inputKind: .number),
-                .init(label: "Line", example: "12行目", inputKind: .number),
+        schema("doujin_book", "同人誌・冊子", "例：C105新刊『作品名』", moment: [page]),
+        schema("youtube_video", "YouTube動画", "例：動画タイトル", moment: [timestamp]),
+        schema("streaming", "配信全般", "例：2026-07-03 配信タイトル", moment: [timestamp]),
+        schema(
+            "radio_podcast", "ラジオ・Podcast", "例：番組名",
+            episode: [
+                choice("radio_kind", "種類", [
+                    option("regular", "通常回"), option("special", "特別回"),
+                ]),
+                integer("episode", "回数", "24", unit: "回"),
+                date("date", "配信日"),
             ],
-            timeOrPositionLabel: "Page/Line",
-            timeOrPositionExample: "p.88 12行目"
+            requirement: .any(["episode", "date"]),
+            moment: [timestamp]
         ),
-        SourceLocatorSchema(
-            mediaType: "doujin_book",
-            mediaLabelJa: "同人誌・冊子",
-            locatorLevels: [
-                .init(label: "Book/Issue", example: "C105新刊"),
-                .init(label: "Page", example: "p.14", inputKind: .number),
-                .init(label: "Panel/Line", example: "2コマ目"),
+        schema("music_video", "MV・PV", "例：楽曲名 Official MV", moment: [timestamp]),
+        schema(
+            "live_concert", "ライブ・コンサート", "例：公演名 2026-04-10 東京",
+            moment: [
+                choice("concert_part", "区分", [
+                    option("main", "本編"), option("mc", "MC"), option("encore", "Encore"),
+                ]),
+                integer("song", "曲順", "3", unit: "曲目"),
+            ]
+        ),
+        schema(
+            "stage_musical", "舞台・ミュージカル", "例：演目 2026-05-01 昼公演",
+            moment: [
+                integer("act", "Act番号", "2", unit: "幕"),
+                integer("scene", "Scene番号", "3", unit: "場"),
+            ]
+        ),
+        schema("event_fanmeeting", "イベント・ファンミ", "例：イベント名 2026-07-03 2部"),
+        schema("magazine", "雑誌", "例：雑誌名 2026年8月号", moment: [page]),
+        schema("book_interview", "書籍・写真集・インタビュー本", "例：書籍名", moment: [page]),
+        schema(
+            "sns_post", "SNS投稿", "例：2026-07-03 投稿概要",
+            moment: [integer("slide", "Slide番号", "2", unit: "枚目")]
+        ),
+        schema("blog_article", "ブログ・記事", "例：記事タイトル"),
+        schema(
+            "game", "ゲーム", "例：ゲーム名 Route／Chapter",
+            moment: [integer("chapter", "Chapter番号", "5", unit: "章")]
+        ),
+        schema(
+            "voice_drama", "ドラマCD・音声ドラマ", "例：作品名 Disc 1",
+            episode: [
+                choice("track_kind", "種類", [
+                    option("regular", "通常Track"), option("bonus", "Bonus Track"),
+                ]),
+                integer("track", "Track番号", "3", unit: "Track"),
             ],
-            timeOrPositionLabel: "Page/Panel",
-            timeOrPositionExample: "p.14 2コマ目"
+            requirement: .all(["track"]),
+            moment: [timestamp]
         ),
-        SourceLocatorSchema(
-            mediaType: "youtube_video",
-            mediaLabelJa: "YouTube動画",
-            locatorLevels: [
-                .init(label: "Channel", example: "公式チャンネル"),
-                .init(label: "Video", example: "夏祭り配信"),
-                .init(label: "Section", example: "質問コーナー"),
-            ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "01:23:45",
-            timeOrPositionInputKind: .timestamp
-        ),
-        SourceLocatorSchema(
-            mediaType: "youtube_live",
-            mediaLabelJa: "YouTubeライブ・配信",
-            locatorLevels: [
-                .init(label: "Platform", example: "YouTube"),
-                .init(label: "Stream", example: "夏祭り生配信"),
-                .init(label: "Segment", example: "スパチャ読み / ゲーム中"),
-            ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "02:11:05",
-            timeOrPositionInputKind: .timestamp
-        ),
-        SourceLocatorSchema(
-            mediaType: "streaming",
-            mediaLabelJa: "配信全般",
-            locatorLevels: [
-                .init(label: "Platform", example: "Twitch / ツイキャス"),
-                .init(label: "Stream", example: "雑談配信"),
-                .init(label: "Segment", example: "冒頭 / コラボ枠"),
-            ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "00:45:12",
-            timeOrPositionInputKind: .timestamp
-        ),
-        SourceLocatorSchema(
-            mediaType: "radio_podcast",
-            mediaLabelJa: "ラジオ・Podcast",
-            locatorLevels: [
-                .init(label: "Program", example: "〇〇ラジオ"),
-                .init(label: "Episode/回", example: "#24", inputKind: .number),
-                .init(label: "Corner", example: "ふつおた"),
-            ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "00:12:34",
-            timeOrPositionInputKind: .timestamp
-        ),
-        SourceLocatorSchema(
-            mediaType: "music_video",
-            mediaLabelJa: "MV・PV",
-            locatorLevels: [
-                .init(label: "Artist/Unit", example: "〇〇"),
-                .init(label: "Song/Video", example: "Blue Hour MV"),
-                .init(label: "Scene", example: "2番サビ"),
-            ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "02:34",
-            timeOrPositionInputKind: .timestamp
-        ),
-        SourceLocatorSchema(
-            mediaType: "live_concert",
-            mediaLabelJa: "ライブ・コンサート",
-            locatorLevels: [
-                .init(label: "Tour/Event", example: "Spring Live"),
-                .init(label: "Date/Venue", example: "2026/04/10 東京"),
-                .init(label: "Part", example: "MC / Encore"),
-                .init(label: "Song", example: "3曲目"),
-            ],
-            timeOrPositionLabel: "Position",
-            timeOrPositionExample: "MC中 / 3曲目後"
-        ),
-        SourceLocatorSchema(
-            mediaType: "stage_musical",
-            mediaLabelJa: "舞台・ミュージカル",
-            locatorLevels: [
-                .init(label: "Production", example: "〇〇ミュージカル"),
-                .init(label: "Performance", example: "2026/05/01 昼"),
-                .init(label: "Act/Scene", example: "Act 2 Scene 3"),
-            ],
-            timeOrPositionLabel: "Position",
-            timeOrPositionExample: "Act2 Scene3"
-        ),
-        SourceLocatorSchema(
-            mediaType: "event_fanmeeting",
-            mediaLabelJa: "イベント・ファンミ",
-            locatorLevels: [
-                .init(label: "Event", example: "ファンミーティング"),
-                .init(label: "Session/部", example: "2部", inputKind: .number),
-                .init(label: "Corner", example: "質問コーナー"),
-            ],
-            timeOrPositionLabel: "Position",
-            timeOrPositionExample: "質問コーナー後半"
-        ),
-        SourceLocatorSchema(
-            mediaType: "magazine",
-            mediaLabelJa: "雑誌",
-            locatorLevels: [
-                .init(label: "Magazine", example: "anan"),
-                .init(label: "Issue", example: "2026年8月号"),
-                .init(label: "Page", example: "p.32", inputKind: .number),
-                .init(label: "Section", example: "インタビュー"),
-            ],
-            timeOrPositionLabel: "Page",
-            timeOrPositionExample: "p.32",
-            timeOrPositionInputKind: .number
-        ),
-        SourceLocatorSchema(
-            mediaType: "book_interview",
-            mediaLabelJa: "書籍・写真集・インタビュー本",
-            locatorLevels: [
-                .init(label: "Book", example: "公式ガイドブック"),
-                .init(label: "Chapter/Section", example: "対談ページ"),
-                .init(label: "Page", example: "p.54", inputKind: .number),
-            ],
-            timeOrPositionLabel: "Page",
-            timeOrPositionExample: "p.54",
-            timeOrPositionInputKind: .number
-        ),
-        SourceLocatorSchema(
-            mediaType: "sns_post",
-            mediaLabelJa: "SNS投稿",
-            locatorLevels: [
-                .init(label: "Platform", example: "X / Instagram"),
-                .init(label: "Post", example: "楽屋写真投稿"),
-                .init(label: "Thread/Slide", example: "2枚目 / リプ欄"),
-            ],
-            timeOrPositionLabel: "URL/Position",
-            timeOrPositionExample: "URL / 2枚目"
-        ),
-        SourceLocatorSchema(
-            mediaType: "blog_article",
-            mediaLabelJa: "ブログ・記事",
-            locatorLevels: [
-                .init(label: "Site", example: "公式ブログ"),
-                .init(label: "Article", example: "撮影裏話"),
-                .init(label: "Section", example: "後半のQ&A"),
-            ],
-            timeOrPositionLabel: "URL/Section",
-            timeOrPositionExample: "URL / Q&A"
-        ),
-        SourceLocatorSchema(
-            mediaType: "game",
-            mediaLabelJa: "ゲーム",
-            locatorLevels: [
-                .init(label: "Game", example: "〇〇"),
-                .init(label: "Story/Chapter", example: "第5章"),
-                .init(label: "Quest/Scene", example: "再会シーン"),
-                .init(label: "Line", example: "選択肢後"),
-            ],
-            timeOrPositionLabel: "Position",
-            timeOrPositionExample: "第5章 再会シーン"
-        ),
-        SourceLocatorSchema(
-            mediaType: "voice_drama",
-            mediaLabelJa: "ドラマCD・音声ドラマ",
-            locatorLevels: [
-                .init(label: "Album/Work", example: "ドラマCD"),
-                .init(label: "Track", example: "Track 3", inputKind: .number),
-                .init(label: "Scene", example: "喧嘩後の会話"),
-            ],
-            timeOrPositionLabel: "Timestamp",
-            timeOrPositionExample: "00:08:12",
-            timeOrPositionInputKind: .timestamp
-        ),
-        SourceLocatorSchema(
-            mediaType: "other",
-            mediaLabelJa: "その他",
-            locatorLevels: [
-                .init(label: "Category", example: "未分類"),
-                .init(label: "Section", example: "任意"),
-                .init(label: "Position", example: "任意"),
-            ],
-            timeOrPositionLabel: "Position",
-            timeOrPositionExample: "自由入力"
-        ),
+        schema("other", "その他", "例：識別できるSource名"),
     ]
 
     static func schema(for mediaType: String) -> SourceLocatorSchema? {
         all.first(where: { $0.mediaType == mediaType })
     }
 
-    private static func contextFieldRows(for mediaType: String) -> [[ContextField]] {
-        switch mediaType {
-        case "anime":
-            return [
-                [
-                    field("season", "SEASON（シーズン）", "2", .number, copyKey: "anime.season", unit: "期"),
-                    field("episode", "EPISODE（話数）", "12", .number, copyKey: "anime.episode", unit: "話"),
-                ],
-                [timestampField],
-            ]
-        case "tv_drama":
-            return [
-                [
-                    field("season", "SEASON（シーズン）", "2", .number, copyKey: "tv_drama.season"),
-                    field("episode", "EPISODE（話数・放送回）", "第5話 / 2026-07-03 / 特番", .text, copyKey: "tv_drama.episode"),
-                ],
-                [timestampField],
-            ]
-        case "movie", "youtube_video", "youtube_live", "streaming", "music_video":
-            return [[timestampField]]
-        case "manga":
-            return [
-                [
-                    field("volume", "VOLUME（巻数）", "3", .number, copyKey: "manga.volume", unit: "巻"),
-                    field("chapter", "CHAPTER（話数）", "42", .number, copyKey: "manga.chapter", unit: "話"),
-                ],
-                [field("page", "PAGE（ページ）", "126", .number, copyKey: "manga.page", unit: "ページ")],
-            ]
-        case "novel":
-            return [
-                [
-                    field("volume", "VOLUME（巻数）", "3", .number, copyKey: "novel.volume", unit: "巻"),
-                    field("chapter", "CHAPTER（章）", "4", .number, copyKey: "novel.chapter", unit: "章"),
-                ],
-                [field("page", "PAGE（ページ）", "88", .number, copyKey: "novel.page", unit: "ページ")],
-            ]
-        case "doujin_book":
-            return [[field("page", "PAGE（ページ）", "14", .number, copyKey: "doujin_book.page", unit: "ページ")]]
-        case "radio_podcast":
-            return [
-                [field("episode", "EPISODE（回数）", "24", .number, copyKey: "radio_podcast.episode", unit: "回")],
-                [timestampField],
-            ]
-        case "live_concert":
-            return [[field("position", "POSITION（位置）", "MC中 / 3曲目後", .text, copyKey: "live_concert.position")]]
-        case "stage_musical":
-            return [[
-                field("performance", "PERFORMANCE（公演回）", "2026-05-01 昼", .text, copyKey: "stage_musical.performance"),
-                field("scene", "SCENE（幕・シーン）", "第2幕 第3場", .text, copyKey: "stage_musical.scene"),
-            ]]
-        case "event_fanmeeting":
-            return [
-                [field("session", "SESSION（部）", "2", .number, copyKey: "event_fanmeeting.session", unit: "部")],
-                [field("position", "POSITION（位置）", "質問コーナー後半", .text, copyKey: "event_fanmeeting.position")],
-            ]
-        case "magazine":
-            return [[
-                field("issue", "ISSUE（号）", "2026年8月号", .text, copyKey: "magazine.issue"),
-                field("page", "PAGE（ページ）", "32", .number, copyKey: "magazine.page", unit: "ページ"),
-            ]]
-        case "book_interview":
-            return [[
-                field("section", "SECTION（章・セクション）", "対談ページ", .text, copyKey: "book_interview.section"),
-                field("page", "PAGE（ページ）", "54", .number, copyKey: "book_interview.page", unit: "ページ"),
-            ]]
-        case "sns_post":
-            return [[field("position", "POSITION（投稿内の位置）", "2枚目 / 返信欄", .text, copyKey: "sns_post.position")]]
-        case "blog_article":
-            return [[field("section", "SECTION（セクション）", "後半のQ&A", .text, copyKey: "blog_article.section")]]
-        case "game":
-            return [[
-                field("story", "STORY（ストーリー・章）", "第5章", .text, copyKey: "game.story"),
-                field("scene", "SCENE（クエスト・シーン）", "再会シーン", .text, copyKey: "game.scene"),
-            ]]
-        case "voice_drama":
-            return [
-                [field("track", "TRACK（トラック番号）", "3", .number, copyKey: "voice_drama.track", unit: "トラック")],
-                [timestampField],
-            ]
-        default:
-            return [[field("position", "POSITION（位置）", "自由入力", .text, copyKey: "other.position")]]
-        }
+    static var fallback: SourceLocatorSchema {
+        schema(for: fallbackMediaType) ?? all[all.count - 1]
     }
 
-    private static var timestampField: ContextField {
-        field("timestamp", "TIMESTAMP", "00:00:00", .timestamp, copyKey: "timestamp")
+    private static var timestamp: LocatorField {
+        LocatorField(
+            key: "timestamp",
+            label: copy("timestamp.label", "TIMESTAMP"),
+            placeholder: "00:00:00",
+            inputKind: .timestamp
+        )
+    }
+
+    private static var page: LocatorField {
+        integer("page", "Page", "32", unit: "ページ")
+    }
+
+    private static func schema(
+        _ mediaType: String,
+        _ label: String,
+        _ sourceNameExample: String,
+        episode: [LocatorField] = [],
+        requirement: EpisodeRequirement = .none,
+        moment: [LocatorField] = []
+    ) -> SourceLocatorSchema {
+        SourceLocatorSchema(
+            mediaType: mediaType,
+            mediaLabelJa: label,
+            sourceNameExample: sourceNameExample,
+            episodeFields: episode,
+            episodeRequirement: requirement,
+            momentLocationFields: moment
+        )
+    }
+
+    private static func integer(
+        _ key: String,
+        _ label: String,
+        _ placeholder: String,
+        unit: String? = nil
+    ) -> LocatorField {
+        field(key, label, placeholder, .integer, unit: unit)
+    }
+
+    private static func decimal(
+        _ key: String,
+        _ label: String,
+        _ placeholder: String,
+        unit: String? = nil
+    ) -> LocatorField {
+        field(key, label, placeholder, .decimal, unit: unit)
+    }
+
+    private static func date(_ key: String, _ label: String) -> LocatorField {
+        field(key, label, "yyyy-mm-dd", .date)
+    }
+
+    private static func choice(
+        _ key: String,
+        _ label: String,
+        _ options: [LocatorOption]
+    ) -> LocatorField {
+        LocatorField(
+            key: key,
+            label: copy("\(key).label", label),
+            placeholder: "",
+            inputKind: .choice,
+            options: options,
+            defaultValue: options.first?.id
+        )
     }
 
     private static func field(
         _ key: String,
-        _ defaultLabel: String,
-        _ defaultPlaceholder: String,
+        _ label: String,
+        _ placeholder: String,
         _ inputKind: LocatorInputKind,
-        copyKey: String,
-        unit defaultUnit: String? = nil
-    ) -> ContextField {
-        ContextField(
+        unit: String? = nil
+    ) -> LocatorField {
+        LocatorField(
             key: key,
-            label: AppStrings.newMomentStep2ContextCopy(
-                key: "new_moment.step2.context.\(copyKey).label",
-                defaultValue: defaultLabel
-            ),
-            placeholder: AppStrings.newMomentStep2ContextCopy(
-                key: "new_moment.step2.context.\(copyKey).placeholder",
-                defaultValue: defaultPlaceholder
-            ),
+            label: copy("\(key).label", label),
+            placeholder: copy("\(key).placeholder", placeholder),
             inputKind: inputKind,
-            unit: defaultUnit.map {
-                AppStrings.newMomentStep2ContextCopy(
-                    key: "new_moment.step2.context.\(copyKey).unit",
-                    defaultValue: $0
-                )
-            }
+            unit: unit.map { copy("\(key).unit", $0) }
         )
     }
 
+    private static func option(_ id: String, _ label: String) -> LocatorOption {
+        LocatorOption(id: id, label: copy("option.\(id)", label))
+    }
 
-    static var fallback: SourceLocatorSchema {
-        schema(for: fallbackMediaType) ?? SourceLocatorSchema(
-            mediaType: fallbackMediaType,
-            mediaLabelJa: "その他",
-            locatorLevels: [
-                .init(label: "Category", example: "未分類"),
-                .init(label: "Section", example: "任意"),
-            ],
-            timeOrPositionLabel: "Position",
-            timeOrPositionExample: "自由入力"
+    private static func copy(_ key: String, _ value: String) -> String {
+        AppStrings.newMomentStep2ContextCopy(
+            key: "source_locator.\(key)",
+            defaultValue: value
         )
+    }
+
+    private func numberedEpisodeName(kind: String, number: String) -> String {
+        guard !number.isEmpty else { return "" }
+        switch kind {
+        case "special": return "特別編 \(number)"
+        case "ova": return "OVA \(number)"
+        case "recap": return "総集編 \(number)"
+        default: return "第\(number)話"
+        }
+    }
+
+    private func chapterName(kind: String, number: String, unit: String) -> String? {
+        if mediaType == "novel", kind == "prologue" {
+            return number.isEmpty ? "プロローグ" : "プロローグ \(number)"
+        }
+        if mediaType == "novel", kind == "epilogue" {
+            return number.isEmpty ? "エピローグ" : "エピローグ \(number)"
+        }
+        guard !number.isEmpty else { return nil }
+        switch kind {
+        case "extra": return "番外編 \(number)"
+        case "special": return "特別編 \(number)"
+        default: return "第\(number)\(unit)"
+        }
+    }
+
+    private func unitValue(_ value: String?, unit: String) -> String? {
+        guard let value = value?.nilIfEmpty else { return nil }
+        return "\(value)\(unit)"
+    }
+
+    private func joined(_ values: [String?]) -> String {
+        values.compactMap { $0?.nilIfEmpty }.joined(separator: "・")
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

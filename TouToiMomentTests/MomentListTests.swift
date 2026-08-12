@@ -63,6 +63,23 @@ struct MomentListTests {
         #expect(store.favoriteMoments.contains(where: { $0.id == id }))
     }
 
+    @Test func deletingASourceClearsOnlySourceAndEpisodeReferences() {
+        let store = MomentStore()
+        let id = "moment-school-trip-ep6-scene-2"
+        let before = store.moment(id: id)!
+
+        store.clearSourceReferences(id: "source-school-trip")
+
+        let after = store.moment(id: id)!
+        #expect(after.sceneText == before.sceneText)
+        #expect(after.heartText == before.heartText)
+        #expect(after.contextValues == before.contextValues)
+        #expect(after.sourceID == nil)
+        #expect(after.sourceName == "—")
+        #expect(after.episodeID == nil)
+        #expect(after.episodeLocatorValues.isEmpty)
+    }
+
     @Test func savedDraftIsInsertedAtTheBeginning() {
         let store = MomentStore(moments: [])
         let reaction = ReactionCatalog.reaction(withID: "emotional.kandou")!
@@ -76,12 +93,18 @@ struct MomentListTests {
                 id: "source-new",
                 displayName: "新しいSource",
                 helperText: "",
-                mediaType: "anime",
-                totalCount: 12,
-                isFavorite: false
+                mediaType: "anime"
+            ),
+            selectedEpisode: .init(
+                id: "episode-12",
+                sourceID: "source-new",
+                locatorValues: [
+                    .init(key: "episode_kind", value: "regular"),
+                    .init(key: "episode", value: "12"),
+                ],
+                displayName: "第12話"
             ),
             contextValues: [
-                .init(key: "episode", value: "12"),
                 .init(key: "timestamp", value: "00:18:42")
             ],
             sceneSummary: "忘れられない場面",
@@ -95,14 +118,13 @@ struct MomentListTests {
         #expect(store.moments.count == 1)
         #expect(store.moments[0].sceneText == "忘れられない場面")
         #expect(store.moments[0].heartText == "尊い")
-        #expect(store.moments[0].episodeLabel == "EP12")
+        #expect(store.moments[0].episodeLabel == "第12話")
         #expect(store.moments[0].pairID == "pair-new")
         #expect(store.moments[0].pairName == "Member 1 ・ Member 2")
         #expect(store.moments[0].reactionIDs == ["emotional.kandou"])
         #expect(store.moments[0].reactionLabels == ["🥹 感動"])
         #expect(store.moments[0].mediaType == "anime")
         #expect(store.moments[0].contextValues == [
-            .init(key: "episode", value: "12"),
             .init(key: "timestamp", value: "00:18:42")
         ])
         #expect(store.moments[0].createdAt <= Date())
@@ -130,6 +152,7 @@ struct MomentListTests {
         #expect(viewModel.reactionOptions == [
             MomentFilterOption(id: "positive.kyun", label: "🥰 キュン"),
             MomentFilterOption(id: "emotional.naita", label: "😭 泣いた"),
+            MomentFilterOption(id: "emotional.setsunai", label: "💔 切ない"),
             MomentFilterOption(id: "excited.shougeki", label: "🤯 衝撃"),
             MomentFilterOption(id: "excited.saikou", label: "💥 最高"),
         ])
@@ -211,9 +234,9 @@ struct MomentListTests {
         let moment = MomentCardModel.preview[0]
         let items = MomentContextDisplayFormatter.items(for: moment)
 
-        #expect(items.map(\.key) == ["episode", "timestamp"])
-        #expect(items.map(\.value) == ["3話", "00:18:42"])
-        #expect(MomentContextDisplayFormatter.cardLabel(for: moment) == "EP3")
+        #expect(items.map(\.key) == ["timestamp"])
+        #expect(items.map(\.value) == ["00:18:42"])
+        #expect(moment.episodeLabel == "第3話")
         #expect(MomentContextDisplayFormatter.timestamp(for: moment) == "00:18:42")
         #expect(MomentShareEpisodeTypography.usesJapaneseFont(for: "6話"))
         #expect(!MomentShareEpisodeTypography.usesJapaneseFont(for: "EP.06"))
@@ -234,11 +257,11 @@ struct MomentListTests {
         #expect(Set((related.sameSource + related.samePair).map(\.id)).count == 3)
     }
 
-    @Test func shareConfigurationUsesHeartScreamWithoutSceneFallback() {
+    @Test func shareConfigurationUsesTheSharedHeadingPriority() {
         let complete = MomentCardModel.preview[0]
         #expect(
             MomentShareConfiguration.initial(for: complete).heartText(for: complete)
-                == "目から汗止まらん"
+                == complete.displayHeading
         )
 
         let sceneOnly = makeMoment(
@@ -248,8 +271,8 @@ struct MomentListTests {
             sceneText: "記録用Scene",
             heartText: ""
         )
-        #expect(MomentShareConfiguration.initial(for: sceneOnly).heartText(for: sceneOnly) == nil)
-        #expect(!MomentShareTextFormatter.text(for: sceneOnly).contains("記録用Scene"))
+        #expect(MomentShareConfiguration.initial(for: sceneOnly).heartText(for: sceneOnly) == "記録用Scene")
+        #expect(MomentShareTextFormatter.text(for: sceneOnly).contains("記録用Scene"))
     }
 
     @Test func shareTextUsesHeartScreamAndVisibilityConfiguration() {
@@ -267,8 +290,8 @@ struct MomentListTests {
         #expect(MomentShareConfiguration.initial(for: complete).showsReaction)
         #expect(!MomentShareTextFormatter.text(for: complete).contains("must-not-be-shared"))
         #expect(MomentShareTextFormatter.text(for: complete) == [
-            "目から汗止まらん",
-            "修学旅行で仲良くないグループに... 3話 · 00:18:42",
+            complete.displayHeading,
+            "修学旅行で仲良くないグループに... 第3話 00:18:42",
             "葵 ・ 凛",
             "😭 泣いた",
             "#TouToiMoment"
@@ -284,8 +307,8 @@ struct MomentListTests {
                 for: complete,
                 configuration: withoutOptionalInformation
             ) == [
-                "目から汗止まらん",
-                "修学旅行で仲良くないグループに... 3話 · 00:18:42"
+                complete.displayHeading,
+                "修学旅行で仲良くないグループに... 第3話 00:18:42"
             ].joined(separator: "\n")
         )
 
@@ -295,8 +318,8 @@ struct MomentListTests {
                 for: complete,
                 configuration: withoutReaction
             ) == [
-                "目から汗止まらん",
-                "修学旅行で仲良くないグループに... 3話 · 00:18:42",
+                complete.displayHeading,
+                "修学旅行で仲良くないグループに... 第3話 00:18:42",
                 "葵 ・ 凛",
                 "#TouToiMoment"
             ].joined(separator: "\n")
@@ -313,21 +336,32 @@ struct MomentListTests {
     }
 
     @Test func shareCardRendersAtTheExportSize() {
-        let image = MomentShareImageRenderer.image(
-            for: MomentCardModel.preview[0],
-            configuration: .initial(for: MomentCardModel.preview[0])
-        )
+        let moment = MomentCardModel.preview[0]
+        let configurations = [
+            MomentShareConfiguration.initial(for: moment),
+            MomentShareConfiguration(showsReaction: false),
+            MomentShareConfiguration(
+                showsPair: false,
+                showsReaction: false,
+                showsHashtag: false
+            )
+        ]
+        let images = configurations.map {
+            MomentShareImageRenderer.image(for: moment, configuration: $0)
+        }
 
-        #expect(image != nil)
-        #expect(image?.size.width == 342)
-        #expect(image?.size.height == 612)
-        #expect(image?.scale == 3)
+        #expect(images.allSatisfy { $0 != nil })
+        #expect(images.allSatisfy { $0?.size.width == 342 })
+        #expect(images.allSatisfy { $0?.size.height == 612 })
+        #expect(images.allSatisfy { $0?.scale == 3 })
 
         let transparentAlphaFormats: [CGImageAlphaInfo] = [
             .first, .last, .premultipliedFirst, .premultipliedLast
         ]
         #expect(
-            image?.cgImage.map { transparentAlphaFormats.contains($0.alphaInfo) } == true
+            images.allSatisfy {
+                $0?.cgImage.map { transparentAlphaFormats.contains($0.alphaInfo) } == true
+            }
         )
     }
 

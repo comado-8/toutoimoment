@@ -1,7 +1,11 @@
 import Foundation
 
 struct MomentFilterState: Equatable {
-    var query = ""
+    private var storedQuery = ""
+    var query: String {
+        get { storedQuery }
+        set { storedQuery = MomentSearchQueryPolicy.limited(newValue) }
+    }
     var favoritesOnly = false
     var selectedPairID: String?
     var selectedSourceID: String?

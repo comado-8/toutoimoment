@@ -1,32 +1,22 @@
-import PhotosUI
 import SwiftUI
 
 struct MomentEditView: View {
     @StateObject private var viewModel: MomentEditViewModel
     let onSave: (NewMomentDraft, MomentImageChangeSet) async -> Bool
-    let loadStoredImageData: (MomentImage) async throws -> Data
     let onClose: () -> Void
 
     @State private var activeSheet: EditSheet?
     @State private var isDiscardConfirmationPresented = false
-    @State private var isPhotoPickerPresented = false
-    @State private var selectedPhotoItem: PhotosPickerItem?
-    @State private var isImageProcessing = false
-    @State private var viewerImageID: String?
-    @State private var imagePendingDeletionID: String?
-    @State private var imageErrorMessage: String?
     @State private var isSaving = false
     @FocusState private var focusedField: String?
 
     init(
         viewModel: MomentEditViewModel,
         onSave: @escaping (NewMomentDraft, MomentImageChangeSet) async -> Bool,
-        loadStoredImageData: @escaping (MomentImage) async throws -> Data,
         onClose: @escaping () -> Void
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onSave = onSave
-        self.loadStoredImageData = loadStoredImageData
         self.onClose = onClose
     }
 
@@ -45,7 +35,6 @@ struct MomentEditView: View {
 
                     captureSection
                     reactionSection
-                    imageSection
 
                     if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
@@ -117,11 +106,13 @@ struct MomentEditView: View {
                         viewModel.selectPair(id: $0)
                         activeSheet = nil
                     },
-                    onCreate: { first, second, name in
-                        viewModel.createPair(member1: first, member2: second, displayName: name)
-                        activeSheet = nil
-                    },
+                    onCreate: { activeSheet = .newPair },
                     onCancel: { activeSheet = nil }
+                )
+            case .newPair:
+                PairEditorSheet(
+                    createAction: { try await viewModel.createPair(request: $0) },
+                    onCreated: { _ in activeSheet = nil }
                 )
             case .source:
                 SourceEditPickerSheet(
@@ -131,14 +122,13 @@ struct MomentEditView: View {
                         viewModel.selectSource(id: $0)
                         activeSheet = nil
                     },
-                    onCreate: { name, mediaType in
-                        Task {
-                            if await viewModel.createSource(displayName: name, mediaType: mediaType) {
-                                activeSheet = nil
-                            }
-                        }
-                    },
+                    onCreate: { activeSheet = .newSource },
                     onCancel: { activeSheet = nil }
+                )
+            case .newSource:
+                NewSourceSheet(
+                    saveAction: { request in try await viewModel.createSource(request) },
+                    onCreated: { _ in activeSheet = nil }
                 )
             case .reaction:
                 ReactionEditPickerSheet(
@@ -152,6 +142,12 @@ struct MomentEditView: View {
                         viewModel.commitReactionEditing()
                         activeSheet = nil
                     }
+                )
+            case .episode:
+                NewEpisodeSheet(
+                    schema: viewModel.sourceSchema,
+                    saveAction: { try await viewModel.createEpisode($0) },
+                    onCreated: { _ in activeSheet = nil }
                 )
             case .timestamp(let key):
                 TimestampEditSheet(
@@ -169,68 +165,32 @@ struct MomentEditView: View {
                 )
             }
         }
-        .photosPicker(
-            isPresented: $isPhotoPickerPresented,
-            selection: $selectedPhotoItem,
-            matching: .images
-        )
-        .onChange(of: selectedPhotoItem) { _, item in
-            guard let item else { return }
-            Task { await importPhoto(item) }
-        }
-        .fullScreenCover(
-            isPresented: Binding(
-                get: { viewerImageID != nil },
-                set: { if !$0 { viewerImageID = nil } }
-            )
-        ) {
-            if let viewerImageID {
-                MomentImageViewer(
-                    items: editImageDisplayItems,
-                    initialImageID: viewerImageID,
-                    loadStoredData: loadStoredImageData,
-                    onDismiss: { self.viewerImageID = nil }
-                )
-            }
-        }
-        .confirmationDialog(
-            AppStrings.momentImageDeleteConfirmationTitle,
-            isPresented: Binding(
-                get: { imagePendingDeletionID != nil },
-                set: { if !$0 { imagePendingDeletionID = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button(AppStrings.momentImageDelete, role: .destructive) {
-                guard let imageID = imagePendingDeletionID else { return }
-                viewModel.removeImage(id: imageID)
-                imagePendingDeletionID = nil
-            }
-            Button(AppStrings.momentImageDeleteCancel, role: .cancel) {
-                imagePendingDeletionID = nil
-            }
-        } message: {
-            Text(AppStrings.momentImageDeleteConfirmationMessage)
-        }
-        .alert(
-            AppStrings.momentImageErrorTitle,
-            isPresented: Binding(
-                get: { imageErrorMessage != nil },
-                set: { if !$0 { imageErrorMessage = nil } }
-            )
-        ) {
-            Button(AppStrings.momentShareErrorDismiss, role: .cancel) {}
-        } message: {
-            Text(imageErrorMessage ?? AppStrings.momentImageErrorMessage)
-        }
         .task {
             await viewModel.loadOptionsIfNeeded()
+        }
+        .task(id: viewModel.draft.selectedSourceID) {
+            await viewModel.loadEpisodes()
         }
     }
 
     private var chooseSection: some View {
         editSection(title: AppStrings.newMomentStep1ChooseTitle) {
             VStack(spacing: 0) {
+                DatePicker(
+                    AppStrings.momentDate,
+                    selection: Binding(
+                        get: { viewModel.draft.momentDate.date() },
+                        set: viewModel.updateMomentDate
+                    ),
+                    in: ...Date.now,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+                .padding(.vertical, 16)
+                .accessibilityIdentifier("moment.edit.date")
+
+                editDivider
+
                 editSelectionRow(
                     title: AppStrings.newMomentStep1PairLabel,
                     value: viewModel.draft.selectedPairDisplayName
@@ -255,6 +215,14 @@ struct MomentEditView: View {
     private var contextSection: some View {
         editSection(title: AppStrings.newMomentStep2Title) {
             VStack(spacing: 0) {
+                if viewModel.sourceSchema.supportsEpisodes {
+                    episodeSelectionRow
+
+                    if !viewModel.contextFields.isEmpty {
+                        editDivider
+                    }
+                }
+
                 ForEach(Array(viewModel.contextFields.enumerated()), id: \.element.id) { index, field in
                     VStack(alignment: .leading, spacing: 7) {
                         Text(field.label)
@@ -283,6 +251,33 @@ struct MomentEditView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                        } else if field.inputKind == .choice {
+                            Menu {
+                                ForEach(field.options) { option in
+                                    Button(option.label) {
+                                        viewModel.updateContextValue(
+                                            field: field,
+                                            value: option.id
+                                        )
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(
+                                        field.options.first {
+                                            $0.id == viewModel.value(for: field.key)
+                                        }?.label ?? field.placeholder
+                                    )
+                                    .foregroundStyle(
+                                        viewModel.value(for: field.key).isEmpty
+                                            ? Color.textSecondary
+                                            : Color.textPrimary
+                                    )
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundStyle(Color.appPrimary)
+                                }
+                            }
                         } else {
                             HStack {
                                 TextField(
@@ -292,7 +287,9 @@ struct MomentEditView: View {
                                         set: { viewModel.updateContextValue(field: field, value: $0) }
                                     )
                                 )
-                                .keyboardType(field.inputKind == .number ? .numberPad : .default)
+                                .keyboardType(
+                                    keyboardType(for: field.inputKind)
+                                )
                                 .focused($focusedField, equals: field.key)
 
                                 if let unit = field.unit {
@@ -300,6 +297,17 @@ struct MomentEditView: View {
                                         .foregroundStyle(Color.textSecondary)
                                 }
                             }
+                        }
+
+                        if let schemaField = viewModel.sourceSchema.momentLocationFields.first(
+                            where: { $0.key == field.key }
+                        ), !LocatorValuePolicy.isValid(
+                            viewModel.value(for: field.key),
+                            for: schemaField
+                        ) {
+                            Text(AppStrings.newEpisodeInvalidValue)
+                                .font(.footnote)
+                                .foregroundStyle(Color.red)
                         }
                     }
                     .padding(.vertical, 16)
@@ -312,12 +320,98 @@ struct MomentEditView: View {
         }
     }
 
+    private func keyboardType(for inputKind: LocatorInputKind) -> UIKeyboardType {
+        switch inputKind {
+        case .decimal: .decimalPad
+        case .integer: .numberPad
+        case .choice, .timestamp, .date: .default
+        }
+    }
+
+    private var episodeSelectionRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(AppStrings.newMomentEpisodeSectionTitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.textSecondary)
+                Spacer()
+                Button {
+                    activeSheet = .episode
+                } label: {
+                    Label(AppStrings.sourceDetailAddEpisode, systemImage: "plus")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.circle)
+                .controlSize(.small)
+                .accessibilityIdentifier("moment.edit.episode.add")
+            }
+
+            Menu {
+                Button(AppStrings.newMomentEpisodeNone) {
+                    viewModel.selectEpisode(id: nil)
+                }
+                ForEach(viewModel.episodes) { episode in
+                    Button(
+                        viewModel.sourceSchema.episodeDisplayName(
+                            for: episode.locatorValues
+                        )
+                    ) {
+                        viewModel.selectEpisode(id: episode.id)
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(
+                        viewModel.draft.selectedEpisode?.displayName
+                            ?? AppStrings.newMomentEpisodeNone
+                    )
+                    .foregroundStyle(
+                        viewModel.draft.selectedEpisode == nil
+                            ? Color.textSecondary
+                            : Color.textPrimary
+                    )
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .foregroundStyle(Color.appPrimary)
+                }
+                .contentShape(Rectangle())
+            }
+
+            if let episodeErrorMessage = viewModel.episodeErrorMessage {
+                Text(episodeErrorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.red)
+            }
+        }
+        .padding(.vertical, 16)
+    }
+
     private var captureSection: some View {
         editSection(title: AppStrings.newMomentStep3Title) {
             VStack(spacing: 0) {
                 editTextArea(
+                    id: "moment-title",
+                    title: AppStrings.momentTitleOptionalLabel,
+                    placeholder: AppStrings.momentTitlePlaceholder,
+                    text: Binding(
+                        get: { viewModel.draft.momentTitle },
+                        set: viewModel.updateMomentTitle
+                    )
+                )
+
+                if MomentTitlePolicy.shouldShowCounter(for: viewModel.draft.momentTitle) {
+                    Text("\(viewModel.draft.momentTitle.count) / \(MomentTitlePolicy.maximumLength)")
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+
+                editDivider
+
+                editTextArea(
                     id: "scene",
-                    title: AppStrings.newMomentStep3SceneSummaryLabel,
+                    title: AppStrings.sceneNoteLabel,
                     placeholder: AppStrings.newMomentStep3SceneSummaryPlaceholder,
                     text: Binding(
                         get: { viewModel.draft.sceneSummary },
@@ -337,8 +431,8 @@ struct MomentEditView: View {
                     )
                 )
 
-                if !viewModel.draft.hasMomentBody {
-                    Text(AppStrings.newMomentStep3NextDisabledHint)
+                if !viewModel.draft.hasRequiredHeartScream {
+                    Text(AppStrings.newMomentRequiredHeartScream)
                         .font(.footnote)
                         .foregroundStyle(Color.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -377,20 +471,6 @@ struct MomentEditView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-        }
-    }
-
-    private var imageSection: some View {
-        editSection(title: AppStrings.momentEditImagesTitle) {
-            MomentImageStrip(
-                items: editImageDisplayItems,
-                isProcessing: isImageProcessing,
-                loadStoredData: loadStoredImageData,
-                onAdd: { isPhotoPickerPresented = true },
-                onOpen: { viewerImageID = $0 },
-                onDelete: { imagePendingDeletionID = $0 }
-            )
-            .padding(.vertical, 10)
         }
     }
 
@@ -473,6 +553,15 @@ struct MomentEditView: View {
 
             if id == "scene" {
                 MomentSceneCharacterCounter(text: text.wrappedValue)
+            } else if id == "heart", HeartScreamTextPolicy.shouldShowCounter(for: text.wrappedValue) {
+                Text("\(text.wrappedValue.count) / \(HeartScreamTextPolicy.maximumLength)")
+                    .font(.caption)
+                    .foregroundStyle(
+                        text.wrappedValue.count >= HeartScreamTextPolicy.warningThreshold
+                            ? Color.orange
+                            : Color.textSecondary
+                    )
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.vertical, 16)
@@ -502,69 +591,55 @@ struct MomentEditView: View {
         }
     }
 
-    private func importPhoto(_ item: PhotosPickerItem) async {
-        guard !isImageProcessing else { return }
-        isImageProcessing = true
-        defer {
-            isImageProcessing = false
-            selectedPhotoItem = nil
-        }
-        do {
-            guard
-                let data = try await item.loadTransferable(type: Data.self),
-                viewModel.addImage(data: data)
-            else {
-                throw MomentImageRepositoryError.invalidImage
-            }
-        } catch {
-            imageErrorMessage = AppStrings.momentImageErrorMessage
-        }
-    }
-
-    private var editImageDisplayItems: [MomentImageDisplayItem] {
-        viewModel.imageItems.map { item in
-            if let existingImage = item.existingImage {
-                return MomentImageDisplayItem(id: item.id, source: .stored(existingImage))
-            }
-            return MomentImageDisplayItem(
-                id: item.id,
-                source: .pending(item.pendingData ?? Data())
-            )
-        }
-    }
 }
 
 private enum EditSheet: Identifiable {
     case pair
+    case newPair
     case source
+    case newSource
     case reaction
+    case episode
     case timestamp(String)
 
     var id: String {
         switch self {
         case .pair: "pair"
+        case .newPair: "new-pair"
         case .source: "source"
+        case .newSource: "new-source"
         case .reaction: "reaction"
+        case .episode: "episode"
         case .timestamp(let key): "timestamp-\(key)"
         }
     }
 }
 
-private struct PairEditPickerSheet: View {
+struct PairEditPickerSheet: View {
     let options: [NewMomentSelectableOption]
     let selectedID: String?
-    let onSelect: (String) -> Void
-    let onCreate: (String, String, String) -> Void
+    let onSelect: (String?) -> Void
+    let onCreate: () -> Void
     let onCancel: () -> Void
-
-    @State private var member1 = ""
-    @State private var member2 = ""
-    @State private var displayName = ""
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
+                    Button {
+                        onSelect(nil)
+                    } label: {
+                        HStack {
+                            Text(AppStrings.newMomentStep1PairNoneOption)
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            if selectedID == nil {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.appPrimary)
+                            }
+                        }
+                    }
+
                     ForEach(options) { option in
                         Button {
                             onSelect(option.id)
@@ -582,17 +657,10 @@ private struct PairEditPickerSheet: View {
                     }
                 }
 
-                Section(AppStrings.newMomentStep1NewPair) {
-                    TextField(AppStrings.newMomentStep1NewPairMember1Placeholder, text: $member1)
-                    TextField(AppStrings.newMomentStep1NewPairMember2Placeholder, text: $member2)
-                    TextField(AppStrings.newMomentStep1NewPairNamePlaceholder, text: $displayName)
-                    Button(AppStrings.newMomentStep1NewPairSave) {
-                        onCreate(member1, member2, displayName)
-                    }
-                    .disabled(
-                        member1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || member2.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
+                Section {
+                    Button(AppStrings.newMomentStep1NewPair, action: onCreate)
+                        .foregroundStyle(Color.appPrimary)
+                        .accessibilityIdentifier("moment.edit.pair.new")
                 }
             }
             .navigationTitle(AppStrings.newMomentStep1PairLabel)
@@ -606,15 +674,12 @@ private struct PairEditPickerSheet: View {
     }
 }
 
-private struct SourceEditPickerSheet: View {
+struct SourceEditPickerSheet: View {
     let options: [NewMomentSelectableOption]
     let selectedID: String?
     let onSelect: (String?) -> Void
-    let onCreate: (String, String) -> Void
+    let onCreate: () -> Void
     let onCancel: () -> Void
-
-    @State private var name = ""
-    @State private var mediaType = SourceLocatorSchema.fallbackMediaType
 
     var body: some View {
         NavigationStack {
@@ -658,17 +723,10 @@ private struct SourceEditPickerSheet: View {
                     }
                 }
 
-                Section(AppStrings.newMomentStep1NewSource) {
-                    TextField(AppStrings.newMomentStep1NewSourceNamePlaceholder, text: $name)
-                    Picker(AppStrings.newMomentStep1NewSourceMediumLabel, selection: $mediaType) {
-                        ForEach(SourceLocatorSchema.all) { schema in
-                            Text(schema.mediaLabelJa).tag(schema.mediaType)
-                        }
-                    }
-                    Button(AppStrings.newMomentStep1NewSourceSave) {
-                        onCreate(name, mediaType)
-                    }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Section {
+                    Button(AppStrings.newMomentStep1NewSource, action: onCreate)
+                        .foregroundStyle(Color.appPrimary)
+                        .accessibilityIdentifier("moment.edit.source.new")
                 }
             }
             .navigationTitle(AppStrings.newMomentStep1SourceLabel)
@@ -682,7 +740,7 @@ private struct SourceEditPickerSheet: View {
     }
 }
 
-private struct ReactionEditPickerSheet: View {
+struct ReactionEditPickerSheet: View {
     let selection: Set<String>
     let onToggle: (NewMomentDraft.SelectedReaction) -> Void
     let onCancel: () -> Void
@@ -727,7 +785,7 @@ private struct ReactionEditPickerSheet: View {
     }
 }
 
-private struct TimestampEditSheet: View {
+struct TimestampEditSheet: View {
     let initialValue: (Int, Int, Int)
     let onCancel: () -> Void
     let onSave: (Int, Int, Int) -> Void

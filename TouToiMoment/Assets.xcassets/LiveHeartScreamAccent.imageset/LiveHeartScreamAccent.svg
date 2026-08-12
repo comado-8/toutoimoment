@@ -1,0 +1,24 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="18.5288" height="15.165" viewBox="0 0 18.5288 15.165" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon Container">
+<line id="Line 1" x1="2.05462" y1="2.00002" x2="2.22144" y2="8.02168" stroke="url(#paint0_linear_0_6)" stroke-width="4" stroke-linecap="round"/>
+<line id="Line 3" x1="2" y1="-2" x2="8.02397" y2="-2" transform="matrix(-0.825449 0.564476 0.564476 0.825449 18.5288 9.50673)" stroke="url(#paint1_linear_0_6)" stroke-width="4" stroke-linecap="round"/>
+<line id="Line 2" x1="9.80896" y1="3.71246" x2="7.08281" y2="9.05738" stroke="url(#paint2_linear_0_6)" stroke-width="4" stroke-linecap="round"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_6" x1="-3.3319" y1="-2.17281" x2="-4.43385" y2="14.7719" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FCA8D9"/>
+<stop offset="0.484267" stop-color="#8B70F0"/>
+<stop offset="1" stop-color="#403CF8"/>
+</linearGradient>
+<linearGradient id="paint1_linear_0_6" x1="-2.32039" y1="3.2689" x2="13.9324" y2="4.10817" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FCA8D9"/>
+<stop offset="0.484267" stop-color="#8B70F0"/>
+<stop offset="1" stop-color="#403CF8"/>
+</linearGradient>
+<linearGradient id="paint2_linear_0_6" x1="7.07581" y1="-2.52525" x2="-0.194795" y2="11.3019" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FCA8D9"/>
+<stop offset="0.484267" stop-color="#8B70F0"/>
+<stop offset="1" stop-color="#403CF8"/>
+</linearGradient>
+</defs>
+</svg>

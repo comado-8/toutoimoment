@@ -1,13 +1,18 @@
 import SwiftUI
 
 struct AppRootView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var selectedTab: MainTab = .home
     @State private var navigationPath: [AppRoute] = []
     @State private var isDiscardConfirmationPresented = false
+    @State private var isProfileDrawerPresented = false
     @State private var isKeyboardVisible = false
-    @StateObject private var momentStore = MomentStore()
-    private let pairRepository: any PairRepository = InMemoryPairRepository()
-    private let sourceRepository: any SourceRepository = InMemorySourceRepository()
+    @StateObject private var appDataStore = AppDataStore()
+    private var momentStore: MomentStore { appDataStore.momentStore }
+    private var sourceRepository: any SourceRepository { appDataStore.sourceRepository }
+    private var pairRepository: any PairRepository { appDataStore.pairRepository }
+    private var profileStore: ProfileStore { appDataStore.profileStore }
+    private var settingsStore: SettingsStore { appDataStore.settingsStore }
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -21,7 +26,138 @@ struct AppRootView: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .pairDetail(let pairID):
-                    PairDetailView(pairID: pairID)
+                    PairDetailView(
+                        pairID: pairID,
+                        repository: pairRepository,
+                        momentStore: momentStore,
+                        onCreateMoment: {
+                            navigationPath.append(
+                                .newMoment(pairID: pairID, sourceID: nil, episodeID: nil)
+                            )
+                        },
+                        onUpdated: { pair in
+                            momentStore.updatePairReference(
+                                id: pair.id,
+                                displayName: pair.displayName,
+                                member1Name: pair.member1Name,
+                                member2Name: pair.member2Name,
+                                leadingColorHex: pair.leadingColorHex,
+                                trailingColorHex: pair.trailingColorHex
+                            )
+                        },
+                        onDeleted: { pairID in
+                            momentStore.clearPairReferences(id: pairID)
+                        },
+                        onOpenMoment: { momentID in
+                            navigationPath.append(.momentDetail(momentID))
+                        }
+                    )
+                case .sourceDetail(let sourceID):
+                    SourceDetailView(
+                        sourceID: sourceID,
+                        repository: sourceRepository,
+                        momentStore: momentStore,
+                        onOpenEpisode: { sourceID, episodeID in
+                            navigationPath.append(
+                                .episodeDetail(sourceID: sourceID, episodeID: episodeID)
+                            )
+                        },
+                        onOpenMoment: { momentID in
+                            navigationPath.append(.momentDetail(momentID))
+                        },
+                        onUpdated: { source in
+                            momentStore.updateSourceReference(
+                                id: source.id,
+                                displayName: source.displayName,
+                                mediaType: source.mediaType
+                            )
+                        },
+                        onDeleted: { sourceID in
+                            momentStore.clearSourceReferences(id: sourceID)
+                        }
+                    )
+                case let .episodeDetail(sourceID, episodeID, initialSection):
+                    EpisodeDetailView(
+                        sourceID: sourceID,
+                        episodeID: episodeID,
+                        initialSection: initialSection,
+                        repository: sourceRepository,
+                        momentStore: momentStore,
+                        onCreateMoment: {
+                            navigationPath.append(
+                                .newMoment(sourceID: sourceID, episodeID: episodeID)
+                            )
+                        },
+                        onStartWatching: {
+                            navigationPath.append(
+                                .watchingSetup(sourceID: sourceID, episodeID: episodeID)
+                            )
+                        },
+                        onOpenMoment: { momentID in
+                            navigationPath.append(.momentDetail(momentID))
+                        },
+                        onOpenWatchHistory: { sessionID in
+                            navigationPath.append(
+                                .watchHistoryDetail(
+                                    sourceID: sourceID,
+                                    episodeID: episodeID,
+                                    sessionID: sessionID,
+                                    showsSavedConfirmation: false
+                                )
+                            )
+                        }
+                    )
+                case let .watchingSetup(sourceID, episodeID):
+                    WatchingModeSetupView(
+                        sourceID: sourceID,
+                        episodeID: episodeID,
+                        sourceRepository: sourceRepository,
+                        pairRepository: pairRepository,
+                        onReady: { selection in
+                            navigationPath.append(.watchingMode(selection))
+                        },
+                        onClose: closeWatchingMode
+                    )
+                case let .watchingMode(selection):
+                    WatchingModeView(
+                        selection: selection,
+                        repository: sourceRepository,
+                        pairRepository: pairRepository,
+                        momentStore: momentStore,
+                        settingsStore: settingsStore,
+                        onFinished: { sourceID, episodeID, sessionID in
+                            navigationPath = [
+                                .sourceDetail(sourceID),
+                                .episodeDetail(
+                                    sourceID: sourceID,
+                                    episodeID: episodeID,
+                                    initialSection: .watchHistory
+                                ),
+                                .watchHistoryDetail(
+                                    sourceID: sourceID,
+                                    episodeID: episodeID,
+                                    sessionID: sessionID,
+                                    showsSavedConfirmation: true
+                                ),
+                            ]
+                        },
+                        onDiscard: closeWatchingMode
+                    )
+                case let .watchHistoryDetail(
+                    sourceID,
+                    episodeID,
+                    sessionID,
+                    showsSavedConfirmation
+                ):
+                    WatchHistoryDetailView(
+                        sourceID: sourceID,
+                        episodeID: episodeID,
+                        sessionID: sessionID,
+                        showsSavedConfirmation: showsSavedConfirmation,
+                        repository: sourceRepository,
+                        pairRepository: pairRepository,
+                        momentStore: momentStore
+                    )
                 case .momentDetail(let momentID):
                     MomentDetailView(
                         store: momentStore,
@@ -59,12 +195,6 @@ struct AppRootView: View {
                                     return false
                                 }
                             },
-                            loadStoredImageData: { image in
-                                try await momentStore.imageData(
-                                    for: image,
-                                    momentID: momentID
-                                )
-                            },
                             onClose: popMomentEdit
                         )
                     } else {
@@ -73,47 +203,49 @@ struct AppRootView: View {
                             systemImage: "sparkles"
                         )
                     }
-                case .newMomentStep1:
-                    NewMomentStep1View(
-                        viewModel: NewMomentStep1ViewModel(
+                case let .newMoment(pairID, sourceID, episodeID):
+                    NewMomentFlowView(
+                        viewModel: NewMomentCreationViewModel(
                             pairRepository: pairRepository,
-                            sourceRepository: sourceRepository
+                            sourceRepository: sourceRepository,
+                            initialPairID: pairID,
+                            initialSourceID: sourceID,
+                            initialEpisodeID: episodeID
                         ),
-                        onContinue: { draft in
-                            pushNewMomentRoute(.newMomentStep2(draft))
-                        },
-                        onCancel: requestNewMomentCancellation
-                    )
-                case .newMomentStep2(let draft):
-                    NewMomentStep2View(
-                        viewModel: NewMomentStep2ViewModel(draft: draft),
-                        onContinue: { draft in
-                            pushNewMomentRoute(.newMomentStep3(draft))
-                        },
-                        onCancel: requestNewMomentCancellation,
-                        onBackToStep1: returnToNewMomentStep1
-                    )
-                case .newMomentStep3(let draft):
-                    NewMomentStep3View(
-                        viewModel: NewMomentStep3ViewModel(draft: draft),
-                        onContinue: { draft in
-                            pushNewMomentRoute(.newMomentStep4(draft))
-                        },
-                        onCancel: requestNewMomentCancellation,
-                        onBackToStep1: returnToNewMomentStep1,
-                        onBackToStep2: returnToNewMomentStep2
-                    )
-                case .newMomentStep4(let draft):
-                    NewMomentStep4View(
-                        viewModel: NewMomentStep4ViewModel(draft: draft),
                         onSave: { draft in
                             momentStore.add(draft: draft)
                             closeNewMomentFlow()
                         },
-                        onCancel: requestNewMomentCancellation,
-                        onBackToStep1: returnToNewMomentStep1,
-                        onBackToStep2: returnToNewMomentStep2,
-                        onBackToStep3: returnToNewMomentStep3
+                        onCancel: requestNewMomentCancellation
+                    )
+                case .editProfile:
+                    EditProfileView(profileStore: profileStore, onBack: popProfileRoute)
+                case .settings:
+                    SettingsView(
+                        settingsStore: settingsStore,
+                        purchaseService: appDataStore.purchaseService,
+                        cloudSyncService: appDataStore.cloudSyncService,
+                        backupService: appDataStore.backupService,
+                        supportLinks: appDataStore.supportLinks,
+                        onBack: popProfileRoute,
+                        onOpenPremium: { navigationPath.append(.premium) },
+                        onOpenAbout: { navigationPath.append(.about) },
+                        onDeleteAll: appDataStore.deleteAllContent,
+                        onRestoreCompleted: {
+                            try await appDataStore.reloadRestoredContent()
+                            navigationPath.removeAll()
+                            selectedTab = .home
+                            isProfileDrawerPresented = false
+                        }
+                    )
+                case .about:
+                    AboutView(supportLinks: appDataStore.supportLinks, onBack: popProfileRoute)
+                case .helpFeedback:
+                    HelpFeedbackView(supportLinks: appDataStore.supportLinks, onBack: popProfileRoute)
+                case .premium:
+                    PremiumView(
+                        purchaseService: appDataStore.purchaseService,
+                        onBack: popProfileRoute
                     )
                 }
             }
@@ -140,6 +272,24 @@ struct AppRootView: View {
                     .padding(.bottom, 8)
             }
         }
+        .overlay {
+            if isProfileDrawerPresented {
+                ProfileDrawerView(
+                    profileStore: profileStore,
+                    onDismiss: closeProfileDrawer,
+                    onEditProfile: { openProfileRoute(.editProfile) },
+                    onOpenPremium: { openProfileRoute(.premium) },
+                    onOpenSettings: { openProfileRoute(.settings) },
+                    onOpenHelp: { openProfileRoute(.helpFeedback) }
+                )
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                .zIndex(10)
+            }
+        }
+        .animation(
+            accessibilityReduceMotion ? .none : .spring(duration: 0.34, bounce: 0.08),
+            value: isProfileDrawerPresented
+        )
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             setKeyboardVisible(true)
         }
@@ -158,21 +308,32 @@ struct AppRootView: View {
         case .home:
             HomeView(
                 momentStore: momentStore,
-                onCreateMoment: { navigationPath.append(.newMomentStep1) },
+                profileStore: profileStore,
+                onOpenProfile: {
+                    isProfileDrawerPresented = true
+                },
+                onCreateMoment: {
+                    navigationPath.append(.newMoment(sourceID: nil, episodeID: nil))
+                },
                 onOpenMoment: { navigationPath.append(.momentDetail($0)) }
             )
         case .pairs:
-            PairListView { pair in
+            PairListView(repository: pairRepository) { pair in
                 navigationPath.append(.pairDetail(pair.id))
             }
         case .moments:
             MomentListView(
                 store: momentStore,
-                onCreateMoment: { navigationPath.append(.newMomentStep1) },
+                onCreateMoment: {
+                    navigationPath.append(.newMoment(sourceID: nil, episodeID: nil))
+                },
                 onOpenMoment: { navigationPath.append(.momentDetail($0)) }
             )
         case .sources:
-            PlaceholderTabView(tab: selectedTab)
+            SourceListView(
+                repository: sourceRepository,
+                onOpenSource: { navigationPath.append(.sourceDetail($0)) }
+            )
         }
     }
 
@@ -197,27 +358,36 @@ struct AppRootView: View {
         withTransaction(transaction) {
             navigationPath.removeAll()
             isDiscardConfirmationPresented = false
+            isProfileDrawerPresented = false
         }
     }
 
-    private func pushNewMomentRoute(_ route: AppRoute) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            navigationPath.append(route)
+    private func requestNewMomentCancellation(hasInput: Bool) {
+        if hasInput {
+            isDiscardConfirmationPresented = true
+        } else {
+            closeNewMomentFlow()
         }
-    }
-
-    private func requestNewMomentCancellation() {
-        isDiscardConfirmationPresented = true
     }
 
     private func closeNewMomentFlow() {
         navigationPath.removeAll { route in
             switch route {
-            case .newMomentStep1, .newMomentStep2, .newMomentStep3, .newMomentStep4:
+            case .newMoment:
                 return true
-            case .pairDetail, .momentDetail, .momentEdit:
+            case .pairDetail,
+                 .sourceDetail,
+                 .episodeDetail,
+                 .watchHistoryDetail,
+                 .watchingSetup,
+                 .watchingMode,
+                 .momentDetail,
+                 .momentEdit,
+                 .editProfile,
+                 .settings,
+                 .about,
+                 .helpFeedback,
+                 .premium:
                 return false
             }
         }
@@ -228,57 +398,42 @@ struct AppRootView: View {
         navigationPath.removeLast()
     }
 
-    private func returnToNewMomentStep1() {
-        trimNewMomentPath { route in
-            if case .newMomentStep1 = route {
-                return .newMomentStep1
-            }
-
-            return nil
-        }
-    }
-
-    private func returnToNewMomentStep2(draft: NewMomentDraft) {
-        trimNewMomentPath { route in
-            if case .newMomentStep2 = route {
-                return .newMomentStep2(draft)
-            }
-
-            return nil
-        }
-    }
-
-    private func returnToNewMomentStep3(draft: NewMomentDraft) {
-        trimNewMomentPath { route in
-            if case .newMomentStep3 = route {
-                return .newMomentStep3(draft)
-            }
-
-            return nil
-        }
-    }
-
-    private func trimNewMomentPath(replacementForTarget: (AppRoute) -> AppRoute?) {
-        guard let targetIndex = navigationPath.indices.first(where: { index in
-            replacementForTarget(navigationPath[index]) != nil
-        }) else {
-            return
-        }
-
-        guard let replacement = replacementForTarget(navigationPath[targetIndex]) else {
-            return
-        }
-
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            navigationPath[targetIndex] = replacement
-            let nextIndex = navigationPath.index(after: targetIndex)
-            if nextIndex < navigationPath.endIndex {
-                navigationPath.removeSubrange(nextIndex..<navigationPath.endIndex)
+    private func closeWatchingMode() {
+        navigationPath.removeAll { route in
+            switch route {
+            case .watchingSetup, .watchingMode:
+                true
+            case .pairDetail,
+                 .sourceDetail,
+                 .episodeDetail,
+                 .watchHistoryDetail,
+                 .momentDetail,
+                 .momentEdit,
+                 .newMoment,
+                 .editProfile,
+                 .settings,
+                 .about,
+                 .helpFeedback,
+                 .premium:
+                false
             }
         }
     }
+
+    private func closeProfileDrawer() {
+        isProfileDrawerPresented = false
+    }
+
+    private func openProfileRoute(_ route: AppRoute) {
+        isProfileDrawerPresented = false
+        navigationPath.append(route)
+    }
+
+    private func popProfileRoute() {
+        guard !navigationPath.isEmpty else { return }
+        navigationPath.removeLast()
+    }
+
 }
 
 private struct PlaceholderTabView: View {

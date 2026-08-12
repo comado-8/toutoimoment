@@ -27,10 +27,12 @@ final class MomentEditViewModel: ObservableObject {
     @Published private(set) var draft: NewMomentDraft
     @Published private(set) var pairOptions: [NewMomentSelectableOption]
     @Published private(set) var sourceOptions: [NewMomentSelectableOption]
+    @Published private(set) var episodes: [EpisodeSummary] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var reactionSelectionIDs: Set<String>
     @Published private(set) var imageItems: [MomentImageEditItem]
+    @Published private(set) var episodeErrorMessage: String?
 
     let momentID: String
 
@@ -66,7 +68,10 @@ final class MomentEditViewModel: ObservableObject {
     }
 
     var canSave: Bool {
-        draft.selectedPairID != nil && draft.hasMomentBody && hasChanges
+        draft.hasRequiredHeartScream
+            && draft.isWithinTextLimits
+            && hasValidMomentLocation
+            && hasChanges
     }
 
     var hasImageChanges: Bool {
@@ -88,20 +93,23 @@ final class MomentEditViewModel: ObservableObject {
         )
     }
 
-    var contextFields: [NewMomentStep2ContextField] {
+    var sourceSchema: SourceLocatorSchema {
         let mediaType = draft.selectedSource?.mediaType ?? SourceLocatorSchema.fallbackMediaType
-        let schema = SourceLocatorSchema.schema(for: mediaType) ?? SourceLocatorSchema.fallback
-        return schema.contextFieldRows.flatMap { row in
-            row.map {
-                NewMomentStep2ContextField(
-                    key: $0.key,
-                    label: $0.label,
-                    placeholder: $0.placeholder,
-                    inputKind: $0.inputKind,
-                    unit: $0.unit
-                )
-            }
+        return SourceLocatorSchema.schema(for: mediaType) ?? .fallback
+    }
+
+    var contextFields: [MomentLocationField] {
+        sourceSchema.momentLocationFields.map(MomentLocationField.init)
+    }
+
+    var hasValidMomentLocation: Bool {
+        sourceSchema.momentLocationFields.allSatisfy { field in
+            LocatorValuePolicy.isValid(draft.contextValue(for: field.key), for: field)
         }
+    }
+
+    func updateMomentDate(_ value: Date) {
+        draft.updateMomentDate(value)
     }
 
     func loadOptionsIfNeeded() async {
@@ -120,10 +128,12 @@ final class MomentEditViewModel: ObservableObject {
                     NewMomentSelectableOption(
                         id: $0.id,
                         title: PairDisplayNameFormatter.normalized($0.displayName),
-                        subtitle: $0.nickname,
+                        subtitle: $0.subtitle,
                         helperText: AppStrings.newMomentStep1MomentCount(count: $0.momentCount),
                         leadingColorHex: $0.leadingColorHex,
-                        trailingColorHex: $0.trailingColorHex
+                        trailingColorHex: $0.trailingColorHex,
+                        pairMember1Name: $0.member1Name,
+                        pairMember2Name: $0.member2Name
                     )
                 }
             )
@@ -137,12 +147,18 @@ final class MomentEditViewModel: ObservableObject {
         }
     }
 
-    func selectPair(id: String) {
+    func selectPair(id: String?) {
+        guard let id else {
+            draft.clearPair()
+            return
+        }
         guard let option = pairOptions.first(where: { $0.id == id }) else { return }
         draft.selectPair(
             id: option.id,
             displayName: option.title,
             nickname: option.subtitle ?? option.title,
+            member1Name: option.pairMember1Name,
+            member2Name: option.pairMember2Name,
             leadingColorHex: option.leadingColorHex,
             trailingColorHex: option.trailingColorHex
         )
@@ -151,18 +167,21 @@ final class MomentEditViewModel: ObservableObject {
     func selectSource(id: String?) {
         guard let id else {
             draft.clearSource()
+            episodes = []
             return
         }
         guard let option = sourceOptions.first(where: { $0.id == id }) else { return }
+        let isSameSource = draft.selectedSourceID == id
         draft.selectSource(
             id: option.id,
             displayName: option.title,
             helperText: option.subtitle ?? "",
-            mediaType: option.sourceMediaType ?? SourceLocatorSchema.fallbackMediaType,
-            totalCount: option.sourceTotalCount,
-            isFavorite: option.sourceIsFavorite ?? false
+            mediaType: option.sourceMediaType ?? SourceLocatorSchema.fallbackMediaType
         )
-        configureContextForCurrentSource()
+        if !isSameSource {
+            episodes = []
+            configureContextForCurrentSource()
+        }
     }
 
     func createPair(
@@ -171,56 +190,115 @@ final class MomentEditViewModel: ObservableObject {
         displayName: String,
         leadingColorHex: String = "#46C1B1",
         trailingColorHex: String = "#F26767"
-    ) {
-        let first = member1.trimmingCharacters(in: .whitespacesAndNewlines)
-        let second = member2.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !first.isEmpty, !second.isEmpty else { return }
-        let customName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = customName.isEmpty
-            ? PairDisplayNameFormatter.joined(first, second)
-            : PairDisplayNameFormatter.normalized(customName)
+    ) async throws {
+        let first = PairTextPolicy.limitedMember(member1)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let second = PairTextPolicy.limitedMember(member2)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !first.isEmpty else { throw PairRepositoryError.invalidPair }
+        let customName = PairTextPolicy.limitedDisplayName(displayName)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let pair = try await pairRepository.createPair(
+            request: PairCreateRequest(
+                member1Name: first,
+                member2Name: second.isEmpty ? nil : second,
+                nickname: customName,
+                leadingColorHex: leadingColorHex,
+                trailingColorHex: second.isEmpty ? nil : trailingColorHex
+            )
+        )
         let option = NewMomentSelectableOption(
-            id: UUID().uuidString,
-            title: title,
-            subtitle: title,
+            id: pair.id,
+            title: pair.displayName,
+            subtitle: pair.subtitle,
             helperText: AppStrings.newMomentStep1MomentCount(count: 0),
-            leadingColorHex: leadingColorHex,
-            trailingColorHex: trailingColorHex
+            leadingColorHex: pair.leadingColorHex,
+            trailingColorHex: pair.trailingColorHex,
+            pairMember1Name: pair.member1Name,
+            pairMember2Name: pair.member2Name
         )
         pairOptions.insert(option, at: 0)
         selectPair(id: option.id)
     }
 
-    func createSource(displayName: String, mediaType: String) async -> Bool {
-        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return false }
-        do {
-            let source = try await sourceRepository.createSource(
-                displayName: name,
-                helperText: SourceLocatorSchema.schema(for: mediaType)?.mediaLabelJa ?? mediaType,
-                mediaType: mediaType,
-                totalCount: nil,
-                isFavorite: false
-            )
-            let option = NewMomentSelectableOption(source: source)
-            sourceOptions.insert(option, at: 0)
-            selectSource(id: option.id)
-            errorMessage = nil
-            return true
-        } catch {
-            errorMessage = AppStrings.momentEditLoadError
-            return false
+    func createPair(request: PairCreateRequest) async throws -> PairSummary {
+        let pair = try await pairRepository.createPair(request: request)
+        let option = NewMomentSelectableOption(
+            id: pair.id,
+            title: pair.displayName,
+            subtitle: pair.subtitle,
+            helperText: AppStrings.newMomentStep1MomentCount(count: pair.momentCount),
+            leadingColorHex: pair.leadingColorHex,
+            trailingColorHex: pair.trailingColorHex,
+            pairMember1Name: pair.member1Name,
+            pairMember2Name: pair.member2Name
+        )
+        pairOptions.removeAll { $0.id == option.id }
+        pairOptions.insert(option, at: 0)
+        selectPair(id: option.id)
+        return pair
+    }
+
+    func createSource(_ request: SourceCreateRequest) async throws -> SourceSummary {
+        let source = try await sourceRepository.createSource(request: request)
+        let option = NewMomentSelectableOption(source: source)
+        sourceOptions.removeAll { $0.id == option.id }
+        sourceOptions.insert(option, at: 0)
+        selectSource(id: option.id)
+        errorMessage = nil
+        return source
+    }
+
+    func loadEpisodes() async {
+        guard let sourceID = draft.selectedSourceID else {
+            episodes = []
+            episodeErrorMessage = nil
+            return
         }
+        do {
+            episodes = try await sourceRepository.fetchSourceDetail(id: sourceID)?.episodes ?? []
+            episodeErrorMessage = nil
+        } catch {
+            episodeErrorMessage = AppStrings.newEpisodeLoadError
+        }
+    }
+
+    func selectEpisode(id: String?) {
+        guard let id else {
+            draft.clearEpisode()
+            return
+        }
+        guard let episode = episodes.first(where: { $0.id == id }) else { return }
+        draft.selectEpisode(episode, schema: sourceSchema)
+    }
+
+    func createEpisode(_ request: EpisodeCreateRequest) async throws -> EpisodeSummary {
+        guard let sourceID = draft.selectedSourceID else {
+            throw SourceRepositoryError.sourceNotFound
+        }
+        let episode = try await sourceRepository.createEpisode(
+            sourceID: sourceID,
+            request: request
+        )
+        guard draft.selectedSourceID == sourceID else { return episode }
+        episodes.removeAll { $0.id == episode.id }
+        episodes.insert(episode, at: 0)
+        draft.selectEpisode(episode, schema: sourceSchema)
+        episodeErrorMessage = nil
+        return episode
     }
 
     func value(for key: String) -> String {
         draft.contextValue(for: key)
     }
 
-    func updateContextValue(field: NewMomentStep2ContextField, value: String) {
+    func updateContextValue(field: MomentLocationField, value: String) {
+        guard let schemaField = sourceSchema.momentLocationFields.first(
+            where: { $0.key == field.key }
+        ) else { return }
         draft.updateContextValue(
             key: field.key,
-            value: field.inputKind == .number ? Self.digitsOnly(value) : value
+            value: LocatorValuePolicy.normalized(value, for: schemaField)
         )
     }
 
@@ -245,6 +323,10 @@ final class MomentEditViewModel: ObservableObject {
 
     func updateScene(_ value: String) {
         draft.updateSceneSummary(value)
+    }
+
+    func updateMomentTitle(_ value: String) {
+        draft.updateMomentTitle(value)
     }
 
     func updateHeart(_ value: String) {
@@ -296,9 +378,7 @@ final class MomentEditViewModel: ObservableObject {
     }
 
     private func configureContextForCurrentSource() {
-        let mediaType = draft.selectedSource?.mediaType ?? SourceLocatorSchema.fallbackMediaType
-        let schema = SourceLocatorSchema.schema(for: mediaType) ?? SourceLocatorSchema.fallback
-        draft.configureContext(using: schema)
+        draft.configureContext(using: sourceSchema)
     }
 
     private func mergeCurrentOption(
@@ -319,7 +399,9 @@ final class MomentEditViewModel: ObservableObject {
             subtitle: pair.nickname,
             helperText: nil,
             leadingColorHex: pair.leadingColorHex,
-            trailingColorHex: pair.trailingColorHex
+            trailingColorHex: pair.trailingColorHex,
+            pairMember1Name: pair.member1Name,
+            pairMember2Name: pair.member2Name
         )
     }
 
@@ -332,22 +414,8 @@ final class MomentEditViewModel: ObservableObject {
             helperText: nil,
             leadingColorHex: nil,
             trailingColorHex: nil,
-            sourceMediaType: source.mediaType,
-            sourceTotalCount: source.totalCount,
-            sourceIsFavorite: source.isFavorite
+            sourceMediaType: source.mediaType
         )
     }
 
-    private static func digitsOnly(_ value: String) -> String {
-        value.unicodeScalars.compactMap { scalar -> String? in
-            switch scalar.value {
-            case 0x30...0x39:
-                return String(Character(String(scalar)))
-            case 0xFF10...0xFF19:
-                return UnicodeScalar(scalar.value - 0xFF10 + 0x30).map { String(Character(String($0))) }
-            default:
-                return nil
-            }
-        }.joined()
-    }
 }
