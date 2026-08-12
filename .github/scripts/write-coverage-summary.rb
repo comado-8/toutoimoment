@@ -12,15 +12,18 @@ heading = <<~MARKDOWN
 
 MARKDOWN
 
+json_path = File.join(File.dirname(output_path), "coverage-report.json")
+
 unless File.exist?(result_bundle)
   File.write(output_path, heading + "Coverage unavailable because no result bundle was produced.\n")
+  File.write(json_path, JSON.pretty_generate(status: "unavailable", reason: "result bundle not found") + "\n")
   exit 0
 end
 
-json_path = File.join(File.dirname(output_path), "coverage-report.json")
 success = system("xcrun", "xccov", "view", "--report", "--json", result_bundle, out: json_path)
 unless success
   File.write(output_path, heading + "Coverage unavailable because `xccov` could not read the result bundle.\n")
+  File.write(json_path, JSON.pretty_generate(status: "unavailable", reason: "xccov could not read result bundle") + "\n")
   exit 0
 end
 
