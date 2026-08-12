@@ -29,6 +29,23 @@
           }
         }
       }
+    },
+    "TouToiMoment Encrypted Backup" : {
+      "comment" : "Document type name shown by the system for encrypted TouToiMoment backup files.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TouToiMoment Encrypted Backup"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TouToiMoment 暗号化バックアップ"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

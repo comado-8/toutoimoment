@@ -14,11 +14,9 @@ enum NewMomentContextSummaryFormatter {
                     return nil
                 }
 
-                if field.inputKind == .number, let unit = field.unit {
-                    return "\(value)\(unit)"
-                }
-
-                return value
+                return schema.formattedMomentValue(
+                    LocatorValue(key: field.key, value: value)
+                )
             }
 
         if formattedValues.isEmpty {

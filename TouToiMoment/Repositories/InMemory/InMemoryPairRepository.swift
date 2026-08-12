@@ -2,10 +2,14 @@ import Foundation
 
 struct InMemoryPairRepository: PairRepository {
     func fetchPairs() async throws -> [PairSummary] {
-        [
+        Self.fixturePairs
+    }
+
+    static let fixturePairs: [PairSummary] = [
             PairSummary(
                 id: "kirito-asuna",
-                displayName: "Kirito ・ Asuna",
+                member1Name: "Kirito",
+                member2Name: "Asuna",
                 nickname: "きりあす",
                 momentCount: 12,
                 leadingColorHex: "#243979",
@@ -14,7 +18,8 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "yuri-pik",
-                displayName: "Yuri ・ Pik",
+                member1Name: "Yuri",
+                member2Name: "Pik",
                 nickname: "ゆりぴく",
                 momentCount: 12,
                 leadingColorHex: "#F375AA",
@@ -23,7 +28,8 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "roi-yoru",
-                displayName: "Roi ・ Yoru",
+                member1Name: "Roi",
+                member2Name: "Yoru",
                 nickname: "ロイヨル",
                 momentCount: 9,
                 leadingColorHex: "#C9A30F",
@@ -32,7 +38,8 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "nakam-gio",
-                displayName: "Nakam ・ Gio",
+                member1Name: "Nakam",
+                member2Name: "Gio",
                 nickname: "ナカギオ",
                 momentCount: 7,
                 leadingColorHex: "#2F9CCF",
@@ -41,7 +48,8 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "gojo-geto",
-                displayName: "Gojo ・ Geto",
+                member1Name: "Gojo",
+                member2Name: "Geto",
                 nickname: "五夏",
                 momentCount: 19,
                 leadingColorHex: "#6E5AE6",
@@ -50,13 +58,13 @@ struct InMemoryPairRepository: PairRepository {
             ),
             PairSummary(
                 id: "rin-haru",
-                displayName: "Rin ・ Haru",
+                member1Name: "Rin",
+                member2Name: "Haru",
                 nickname: "りんはる",
                 momentCount: 6,
                 leadingColorHex: "#48C2B0",
                 trailingColorHex: "#F46B80",
                 isFavorite: false
             ),
-        ]
-    }
+    ]
 }

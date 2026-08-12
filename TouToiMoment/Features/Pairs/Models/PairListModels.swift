@@ -11,7 +11,7 @@ struct PairListCardModel: Identifiable {
     let id: String
     let displayName: String
     let nickname: String
-    let favoriteCount: Int
+    let momentCount: Int
     let leadingColor: Color
     let trailingColor: Color?
     var isFavorite: Bool
@@ -23,7 +23,7 @@ enum PairListPreviewData {
             id: "kirito-asuna",
             displayName: "Kirito ・ Asuna",
             nickname: "きりあす",
-            favoriteCount: 12,
+            momentCount: 12,
             leadingColor: Color(hex: "#243979"),
             trailingColor: Color(hex: "#D3522E"),
             isFavorite: false
@@ -32,7 +32,7 @@ enum PairListPreviewData {
             id: "yuri-pik",
             displayName: "Yuri ・ Pik",
             nickname: "ゆりぴく",
-            favoriteCount: 12,
+            momentCount: 12,
             leadingColor: Color(hex: "#F375AA"),
             trailingColor: Color(hex: "#417CB3"),
             isFavorite: true
@@ -41,7 +41,7 @@ enum PairListPreviewData {
             id: "roi-yoru",
             displayName: "Roi ・ Yoru",
             nickname: "ロイヨル",
-            favoriteCount: 12,
+            momentCount: 12,
             leadingColor: Color(hex: "#C9A30F"),
             trailingColor: Color(hex: "#A8241E"),
             isFavorite: false
@@ -50,7 +50,7 @@ enum PairListPreviewData {
             id: "nakam-gio",
             displayName: "Nakam ・ Gio",
             nickname: "ナカギオ",
-            favoriteCount: 12,
+            momentCount: 12,
             leadingColor: Color(hex: "#2F9CCF"),
             trailingColor: Color(hex: "#6C3DB0"),
             isFavorite: false

@@ -30,6 +30,8 @@ extension Color {
     static let appPrimaryTint = Color(hex: "#B2B8FD")
     static let appAccent = Color(hex: "#FCA8D9")
     static let appAccentSoft = Color(hex: "#FBD3ED")
+    static let appBlobBlush = Color(hex: "#F8DDEB")
+    static let appBlobPeriwinkle = Color(hex: "#CED6FF")
     static let surfaceLight = Color(hex: "#E9EAF9")
     static let surfaceWhite = Color(hex: "#F3F2F6")
     static let sceneDisplay = Color(hex: "#3E4FAD")
@@ -345,7 +347,7 @@ extension BackgroundTheme {
             ),
             BlobSpec(
                 id: "periwinkle-bottom-left",
-                color: Color(hex: "#CED6FF"),
+                color: .appBlobPeriwinkle,
                 opacity: 0.22,
                 size: CGSize(width: 558.578, height: 327.887),
                 blur: 96,
@@ -410,7 +412,7 @@ extension BackgroundTheme {
             ),
             BlobSpec(
                 id: "blush-lower-mid",
-                color: Color(hex: "#F8DDEB"),
+                color: .appBlobBlush,
                 opacity: 0.17,
                 size: CGSize(width: 389.123, height: 354.675),
                 blur: 90,

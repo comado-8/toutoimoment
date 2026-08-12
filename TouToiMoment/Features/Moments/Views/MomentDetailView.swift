@@ -98,8 +98,9 @@ struct MomentDetailView: View {
                     Button(role: .destructive) {
                         isMomentDeleteConfirmationPresented = true
                     } label: {
-                        Label(AppStrings.momentDetailDelete, systemImage: "trash")
+                        DestructiveMenuLabel(title: AppStrings.momentDetailDelete)
                     }
+                    .tint(Color.red)
                     .accessibilityIdentifier("moment.detail.delete")
                 } label: {
                     Image(systemName: "ellipsis")
@@ -197,21 +198,18 @@ struct MomentDetailView: View {
 
         return ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(alignment: .leading, spacing: 24) {
-                VStack(spacing: 12) {
-                    heroCard(moment)
+                heroCard(moment)
+                    .frame(maxWidth: .infinity)
 
-                    MomentImageStrip(
-                        items: imageDisplayItems(for: moment),
-                        isProcessing: isImageProcessing,
-                        loadStoredData: { image in
-                            try await store.imageData(for: image, momentID: moment.id)
-                        },
-                        onAdd: { isPhotoPickerPresented = true },
-                        onOpen: { viewerImageID = $0 },
-                        onDelete: { imagePendingDeletionID = $0 }
+                if moment.title != nil,
+                   !moment.sceneNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    textSection(
+                        title: AppStrings.sceneNoteLabel,
+                        text: moment.sceneNote,
+                        color: Color.textPrimary,
+                        font: AppTypography.body()
                     )
                 }
-                .frame(maxWidth: .infinity)
 
                 if shouldShowHeartSection(moment) {
                     textSection(
@@ -226,6 +224,8 @@ struct MomentDetailView: View {
                     reactionSection(moment)
                 }
 
+                memoriesSection(moment)
+
                 if moment.sourceID != nil, moment.sourceName != "—" {
                     sourceSection(moment)
                 }
@@ -237,8 +237,6 @@ struct MomentDetailView: View {
                 if !related.isEmpty {
                     relatedSection(related, pairName: moment.pairName)
                 }
-
-                detailsSection(moment)
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
@@ -249,7 +247,8 @@ struct MomentDetailView: View {
 
     private func heroCard(_ moment: MomentCardModel) -> some View {
         let primary = primaryText(for: moment)
-        let usesHeart = moment.sceneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let usesHeart = moment.title == nil
+            && moment.sceneText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         return ZStack(alignment: .topTrailing) {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -266,6 +265,24 @@ struct MomentDetailView: View {
                 .blur(radius: 20)
 
             VStack(spacing: 0) {
+                HStack {
+                    Text(
+                        moment.momentDate.date().formatted(
+                            date: .long,
+                            time: .omitted
+                        )
+                    )
+                    .font(.custom("Geist", size: 12, relativeTo: .caption).weight(.semibold))
+                    .foregroundStyle(Color.appPrimary)
+                    .accessibilityLabel(
+                        "\(AppStrings.momentDate), \(moment.momentDate.date().formatted(date: .long, time: .omitted))"
+                    )
+                    .accessibilityIdentifier("moment.detail.hero.date")
+
+                    Spacer(minLength: 44)
+                }
+                .padding(.bottom, 14)
+
                 VStack(spacing: 6) {
                     if moment.sourceName != "—" {
                         Text(moment.sourceName)
@@ -275,7 +292,12 @@ struct MomentDetailView: View {
                             .lineLimit(2)
                     }
 
-                    let context = MomentContextDisplayFormatter.compactSummary(for: moment)
+                    let context = [
+                        moment.episodeDisplayLabel,
+                        MomentContextDisplayFormatter.compactSummary(for: moment).trimmedOrNil,
+                    ]
+                    .compactMap { $0 }
+                    .joined(separator: " · ")
                     if !context.isEmpty {
                         Text(context)
                             .font(.custom("Geist", size: 12, relativeTo: .caption))
@@ -443,6 +465,30 @@ struct MomentDetailView: View {
         }
     }
 
+    private func memoriesSection(_ moment: MomentCardModel) -> some View {
+        detailSection(AppStrings.momentMemoriesSection) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(AppStrings.momentMemoriesDescription)
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary.opacity(0.82))
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                MomentImageStrip(
+                    items: imageDisplayItems(for: moment),
+                    isProcessing: isImageProcessing,
+                    loadStoredData: { image in
+                        try await store.imageData(for: image, momentID: moment.id)
+                    },
+                    onAdd: { isPhotoPickerPresented = true },
+                    onOpen: { viewerImageID = $0 },
+                    onDelete: { imagePendingDeletionID = $0 }
+                )
+            }
+        }
+        .accessibilityIdentifier("moment.detail.memories")
+    }
+
     private func sourceSection(_ moment: MomentCardModel) -> some View {
         let items = MomentContextDisplayFormatter.items(for: moment)
 
@@ -452,6 +498,14 @@ struct MomentDetailView: View {
                     label: AppStrings.momentDetailSourceName,
                     value: moment.sourceName
                 )
+
+                if let episode = moment.episodeDisplayLabel {
+                    Divider().overlay(Color.white.opacity(0.45))
+                    detailRow(
+                        label: AppStrings.newMomentEpisodeSectionTitle,
+                        value: episode
+                    )
+                }
 
                 ForEach(items) { item in
                     Divider().overlay(Color.white.opacity(0.45))
@@ -468,7 +522,7 @@ struct MomentDetailView: View {
                     id: pairID,
                     displayName: moment.pairName,
                     nickname: "",
-                    favoriteCount: 0,
+                    momentCount: 0,
                     leadingColor: moment.leadingDotColor,
                     trailingColor: moment.trailingDotColor,
                     isFavorite: false
@@ -526,7 +580,7 @@ struct MomentDetailView: View {
                         .foregroundStyle(Color.sceneDisplay)
                         .lineLimit(1)
 
-                    Text(moment.episodeLabel)
+                    Text(moment.cardLocationLabel)
                         .font(.caption)
                         .foregroundStyle(Color.textSecondary)
                 }
@@ -542,17 +596,6 @@ struct MomentDetailView: View {
             .glassCard(cornerRadius: 16, fillOpacity: 0.42)
         }
         .buttonStyle(.plain)
-    }
-
-    private func detailsSection(_ moment: MomentCardModel) -> some View {
-        detailSection(AppStrings.momentDetailDetails) {
-            detailRow(
-                label: AppStrings.momentDetailCreated,
-                value: moment.createdAt.formatted(date: .long, time: .omitted)
-            )
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("moment.detail.details")
     }
 
     private func detailRow(label: String, value: String) -> some View {
@@ -588,11 +631,7 @@ struct MomentDetailView: View {
     }
 
     private func primaryText(for moment: MomentCardModel) -> String {
-        let scene = moment.sceneText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !scene.isEmpty { return scene }
-
-        let heart = moment.heartText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return heart.isEmpty ? "—" : heart
+        moment.displayHeading
     }
 
     private func shouldShowHeartSection(_ moment: MomentCardModel) -> Bool {

@@ -343,6 +343,10 @@ struct MomentShareCard: View {
         moment.sourceName.nilIfPlaceholder
     }
 
+    private var visibleEpisodeLabel: String? {
+        moment.episodeDisplayLabel
+    }
+
     private var visibleLocation: String? {
         MomentContextDisplayFormatter.locationSummary(for: moment).trimmedOrNil
     }
@@ -371,16 +375,13 @@ struct MomentShareCard: View {
                 sourceHeader
                     .layoutPriority(2)
 
-                shareDivider
-
                 primaryHeartText(primaryText)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                shareDivider
             }
             .padding(.top, 34)
+            .padding(.bottom, 12)
             .padding(.horizontal, 28)
-            .frame(height: 410)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if hasFooter {
                 VStack(spacing: 10) {
@@ -412,16 +413,10 @@ struct MomentShareCard: View {
                             .foregroundStyle(Color(hex: "#6B6F9A"))
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
-            } else {
-                Spacer(minLength: 0)
             }
-
-            Rectangle()
-                .fill(Color(hex: "#E8E6F4"))
-                .frame(height: 1)
 
             Text(AppStrings.momentShareCreatedWith)
                 .font(.system(size: 8, weight: .medium, design: .rounded))
@@ -430,63 +425,7 @@ struct MomentShareCard: View {
                 .frame(maxWidth: .infinity, minHeight: 36)
         }
         .frame(width: 342, height: 612)
-        .background {
-            ZStack {
-                RoundedRectangle(
-                    cornerRadius: MomentShareImageRenderer.cornerRadius,
-                    style: .continuous
-                )
-                    .fill(Color.white)
-
-                RoundedRectangle(
-                    cornerRadius: MomentShareImageRenderer.cornerRadius,
-                    style: .continuous
-                )
-                    .fill(Color.white.opacity(0.40))
-
-                RoundedRectangle(
-                    cornerRadius: MomentShareImageRenderer.cornerRadius,
-                    style: .continuous
-                )
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: "#C4B5F0", opacity: 0.19),
-                                Color.white.opacity(0)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: "#FBD3ED", opacity: 0.25),
-                                Color(hex: "#B2B8FD", opacity: 0.25)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .blur(radius: 12)
-            }
-        }
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: MomentShareImageRenderer.cornerRadius,
-                style: .continuous
-            )
-        )
-        .overlay {
-            RoundedRectangle(
-                cornerRadius: MomentShareImageRenderer.cornerRadius,
-                style: .continuous
-            )
-                .stroke(Color.white, lineWidth: 1)
-        }
-        .shadow(color: Color(hex: "#7C6FCD", opacity: 0.12), radius: 32, y: 12)
+        .shareCardSurface(cornerRadius: MomentShareImageRenderer.cornerRadius)
         .accessibilityElement(children: .combine)
     }
 
@@ -526,6 +465,14 @@ struct MomentShareCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if let visibleEpisodeLabel {
+                Text(visibleEpisodeLabel)
+                    .font(MomentShareEpisodeTypography.font(for: visibleEpisodeLabel))
+                    .foregroundStyle(Color.sceneDisplay)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+
             if let visibleLocation {
                 Text(visibleLocation)
                     .font(MomentShareEpisodeTypography.font(for: visibleLocation))
@@ -543,12 +490,6 @@ struct MomentShareCard: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
-    }
-
-    private var shareDivider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.57))
-            .frame(width: 286, height: 1)
     }
 }
 

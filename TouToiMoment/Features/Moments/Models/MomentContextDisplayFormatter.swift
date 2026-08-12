@@ -10,8 +10,7 @@ struct MomentContextDisplayItem: Hashable, Identifiable {
 
 enum MomentContextDisplayFormatter {
     private static let cardPriority = [
-        "episode", "chapter", "track", "session", "volume", "page",
-        "performance", "scene", "story", "issue", "position", "timestamp"
+        "page", "slide", "songOrder", "act", "scene", "chapter", "timestamp"
     ]
 
     static func items(for moment: MomentCardModel) -> [MomentContextDisplayItem] {
@@ -27,11 +26,11 @@ enum MomentContextDisplayFormatter {
 
             let field = fieldsByKey[context.key]
             let formattedValue: String
-            if field?.inputKind == .number, let unit = field?.unit {
-                formattedValue = "\(trimmed)\(unit)"
-            } else {
-                formattedValue = trimmed
-            }
+            formattedValue = field.map {
+                schema(for: moment).formattedMomentValue(
+                    LocatorValue(key: $0.key, value: trimmed)
+                )
+            } ?? trimmed
 
             return MomentContextDisplayItem(
                 key: context.key,
@@ -66,16 +65,6 @@ enum MomentContextDisplayFormatter {
     }
 
     static func cardLabel(for moment: MomentCardModel) -> String? {
-        if moment.mediaType == "anime",
-           let episode = rawValue(for: "episode", in: moment) {
-            return episode.lowercased().hasPrefix("ep") ? episode : "EP\(episode)"
-        }
-
-        if moment.mediaType == "radio_podcast",
-           let episode = rawValue(for: "episode", in: moment) {
-            return episode.hasPrefix("#") ? episode : "#\(episode)"
-        }
-
         let valuesByKey = Dictionary(uniqueKeysWithValues: items(for: moment).map { ($0.key, $0.value) })
         return cardPriority.lazy.compactMap { valuesByKey[$0] }.first
     }
@@ -91,17 +80,6 @@ enum MomentContextDisplayFormatter {
             for: moment.mediaType ?? SourceLocatorSchema.fallbackMediaType
         ) ?? .fallback
     }
-
-    private static func rawValue(
-        for key: String,
-        in moment: MomentCardModel
-    ) -> String? {
-        let value = moment.contextValues
-            .first(where: { $0.key == key })?
-            .value
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return value.isEmpty ? nil : value
-    }
 }
 
 enum MomentShareTextFormatter {
@@ -112,6 +90,7 @@ enum MomentShareTextFormatter {
         let configuration = configuration ?? .initial(for: moment)
         let sourceLine = [
             moment.sourceName.nilIfPlaceholder,
+            moment.episodeDisplayLabel,
             MomentContextDisplayFormatter.compactSummary(for: moment).trimmedOrNil
         ]
         .compactMap { $0 }

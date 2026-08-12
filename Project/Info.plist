@@ -56,5 +56,25 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>TouToiMoment Encrypted Backup</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.comado-studio.toutoimoment.manual-backup</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ttmbackup</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

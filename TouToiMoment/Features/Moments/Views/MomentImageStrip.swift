@@ -49,8 +49,9 @@ struct MomentImageStrip: View {
                         Button(role: .destructive) {
                             onDelete(item.id)
                         } label: {
-                            Label(AppStrings.momentImageDelete, systemImage: "trash")
+                            DestructiveMenuLabel(title: AppStrings.momentImageDelete)
                         }
+                        .tint(Color.red)
                     }
                     .accessibilityLabel(AppStrings.momentImageOpen)
                     .accessibilityHint(AppStrings.momentImageDeleteHint)
@@ -89,7 +90,7 @@ struct MomentImageStrip: View {
         }
         .frame(height: 100)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(AppStrings.momentImageSection)
+        .accessibilityLabel(AppStrings.momentMemoriesSection)
     }
 }
 

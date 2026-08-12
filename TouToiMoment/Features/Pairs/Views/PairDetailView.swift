@@ -2,9 +2,36 @@ import SwiftUI
 
 struct PairDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    private let pairID: String
+    private let repository: any PairRepository
+    @ObservedObject private var momentStore: MomentStore
+    private let onCreateMoment: () -> Void
+    private let onUpdated: (PairSummary) -> Void
+    private let onDeleted: (String) -> Void
+    private let onOpenMoment: (String) -> Void
     @State private var pair: PairDetailModel
+    @State private var pairSummary: PairSummary?
+    @State private var isEditPresented = false
+    @State private var isDeleteConfirmationPresented = false
+    @State private var mutationErrorMessage: String?
+    @State private var isDeleting = false
 
-    init(pairID: String) {
+    init(
+        pairID: String,
+        repository: any PairRepository = InMemoryPairRepository(),
+        momentStore: MomentStore,
+        onCreateMoment: @escaping () -> Void = {},
+        onUpdated: @escaping (PairSummary) -> Void = { _ in },
+        onDeleted: @escaping (String) -> Void = { _ in },
+        onOpenMoment: @escaping (String) -> Void = { _ in }
+    ) {
+        self.pairID = pairID
+        self.repository = repository
+        self.momentStore = momentStore
+        self.onCreateMoment = onCreateMoment
+        self.onUpdated = onUpdated
+        self.onDeleted = onDeleted
+        self.onOpenMoment = onOpenMoment
         _pair = State(initialValue: PairDetailPreviewData.detail(for: pairID))
     }
 
@@ -14,81 +41,166 @@ struct PairDetailView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                header
-                    .padding(.horizontal, AppTheme.Spacing.screen)
-                    .padding(.top, 8)
-
                 PairHeroCard(
                     pair: pair,
-                    onToggleFavorite: { pair.isFavorite.toggle() }
+                    onToggleFavorite: togglePairFavorite
                 )
-                .padding(.top, 6)
+                .padding(.top, 14)
                 .padding(.bottom, 28)
 
                 RecentMomentsSection(
-                    moments: pair.recentMoments,
-                    onToggleFavorite: toggleRecentMomentFavorite
+                    moments: pairMoments,
+                    onCreateMoment: onCreateMoment,
+                    onOpenMoment: onOpenMoment,
+                    onToggleFavorite: momentStore.toggleFavorite
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .toolbar(.hidden, for: .navigationBar)
-    }
-
-    private func toggleRecentMomentFavorite(id: String) {
-        guard let index = pair.recentMoments.firstIndex(where: { $0.id == id }) else {
-            return
-        }
-
-        pair.recentMoments[index].isFavorite.toggle()
-    }
-
-    private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: { dismiss() }) {
-                    iconButtonBackground {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color.textPrimary)
-                    }
+        .navigationTitle(AppStrings.pairDetailTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    isEditPresented = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundStyle(Color.appPrimary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppStrings.pairDetailBackButton)
-
-                Spacer()
-
-                Button(action: {}) {
-                    iconButtonBackground {
-                        Image(systemName: "square.and.pencil")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
+                .tint(Color.appPrimary.opacity(0.14))
                 .accessibilityLabel(AppStrings.pairDetailEditButton)
+                .accessibilityIdentifier("pair_detail.edit")
+                .disabled(pairSummary == nil)
+
+                Menu {
+                    Button(role: .destructive) {
+                        isDeleteConfirmationPresented = true
+                    } label: {
+                        DestructiveMenuLabel(title: AppStrings.pairDetailDelete)
+                    }
+                    .tint(Color.red)
+                    .accessibilityIdentifier("pair_detail.delete")
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
+                .tint(Color.white.opacity(0.72))
+                .foregroundStyle(Color.appPrimary)
+                .accessibilityLabel(AppStrings.pairDetailMore)
+                .accessibilityIdentifier("pair_detail.more")
+                .disabled(pairSummary == nil || isDeleting)
             }
-
-            Text(AppStrings.pairDetailTitle)
-                .font(AppTypography.titleMedium())
-                .foregroundStyle(Color.textPrimary)
-                .accessibilityIdentifier("pair_detail.title")
         }
-        .frame(height: 60)
+        .sheet(isPresented: $isEditPresented) {
+            if let pairSummary {
+                PairEditorSheet(
+                    pair: pairSummary,
+                    updateAction: { request in
+                        try await repository.updatePair(id: pairID, request: request)
+                    },
+                    onUpdated: { updated in
+                        apply(updated)
+                        onUpdated(updated)
+                    }
+                )
+            }
+        }
+        .confirmationDialog(
+            AppStrings.pairDetailDeleteConfirmationTitle,
+            isPresented: $isDeleteConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button(AppStrings.pairDetailDelete, role: .destructive) {
+                Task { await deletePair() }
+            }
+            Button(AppStrings.newMomentStep1NewPairCancel, role: .cancel) {}
+        } message: {
+            Text(AppStrings.pairDetailDeleteConfirmationMessage)
+        }
+        .alert(
+            AppStrings.pairDetailMutationError,
+            isPresented: Binding(
+                get: { mutationErrorMessage != nil },
+                set: { if !$0 { mutationErrorMessage = nil } }
+            )
+        ) {
+            Button(AppStrings.commonOK, role: .cancel) {}
+        }
+        .task {
+            do {
+                try await reloadPair()
+            } catch {
+                mutationErrorMessage = AppStrings.pairDetailMutationError
+            }
+        }
     }
 
-    private func iconButtonBackground<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        ZStack {
-            Circle()
-                .fill(Color.white.opacity(0.28))
-
-            content()
-        }
-        .frame(width: 44, height: 44)
+    private var pairMoments: [MomentCardModel] {
+        momentStore.moments
+            .filter { $0.pairID == pairID }
+            .sorted { lhs, rhs in
+                if lhs.momentDate != rhs.momentDate {
+                    return lhs.momentDate > rhs.momentDate
+                }
+                return lhs.createdAt > rhs.createdAt
+            }
     }
+
+    private func togglePairFavorite() {
+        Task {
+            do {
+                try await repository.toggleFavorite(id: pairID)
+                try await reloadPair()
+            } catch {
+                mutationErrorMessage = AppStrings.pairDetailMutationError
+            }
+        }
+    }
+
+    private func reloadPair() async throws {
+        guard let summary = try await repository.fetchPairs().first(where: { $0.id == pairID }) else {
+            throw PairRepositoryError.pairNotFound
+        }
+        apply(summary)
+    }
+
+    private func apply(_ summary: PairSummary) {
+        pairSummary = summary
+        pair = PairDetailModel(
+            id: summary.id,
+            displayName: summary.displayName,
+            titleLabel: summary.subtitle,
+            momentCount: summary.momentCount,
+            lastLabel: pair.lastLabel,
+            sinceLabel: pair.sinceLabel,
+            leadingColor: Color(hex: summary.leadingColorHex),
+            trailingColor: Color(hex: summary.trailingColorHex ?? summary.leadingColorHex),
+            isFavorite: summary.isFavorite,
+            recentMoments: pair.recentMoments
+        )
+    }
+
+    private func deletePair() async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+
+        do {
+            try await repository.deletePair(id: pairID)
+            onDeleted(pairID)
+            dismiss()
+        } catch {
+            mutationErrorMessage = AppStrings.pairDetailMutationError
+        }
+    }
+
 }
 
 private struct PairHeroCard: View {
@@ -104,9 +216,11 @@ private struct PairHeroCard: View {
                         .foregroundStyle(Color.textPrimary)
                         .accessibilityIdentifier("pair_detail.name")
 
-                    Text(pair.titleLabel)
-                        .font(.custom("Geist-Regular", size: 13))
-                        .foregroundStyle(Color(hex: "#9B9EC4"))
+                    if !pair.titleLabel.isEmpty {
+                        Text(pair.titleLabel)
+                            .font(.custom("Geist-Regular", size: 13))
+                            .foregroundStyle(Color(hex: "#9B9EC4"))
+                    }
                 }
 
                 Spacer(minLength: 12)
@@ -138,25 +252,6 @@ private struct PairHeroCard: View {
                 .frame(height: 3)
                 .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
 
-            HStack(spacing: 10) {
-                PairStatCard(
-                    value: "\(pair.momentCount)",
-                    label: AppStrings.pairDetailStatMoments,
-                    isFilled: true
-                )
-
-                PairStatCard(
-                    value: pair.lastLabel,
-                    label: AppStrings.pairDetailStatLast,
-                    isFilled: false
-                )
-
-                PairStatCard(
-                    value: pair.sinceLabel,
-                    label: AppStrings.pairDetailStatSince,
-                    isFilled: false
-                )
-            }
         }
         .padding(24)
         .glassCard(cornerRadius: 28, fillOpacity: 0.60)
@@ -164,42 +259,10 @@ private struct PairHeroCard: View {
     }
 }
 
-private struct PairStatCard: View {
-    let value: String
-    let label: String
-    let isFilled: Bool
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.custom("Geist-Bold", size: 20))
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Text(label)
-                .font(.custom("Geist-SemiBold", size: 10))
-                .tracking(0.8)
-                .foregroundStyle(Color(hex: "#9B9EC4"))
-                .textCase(.uppercase)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isFilled ? Color.surfaceLight : Color.clear)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.appPrimaryTint, lineWidth: 1)
-                }
-        }
-    }
-}
-
 private struct RecentMomentsSection: View {
-    let moments: [PairDetailMomentModel]
+    let moments: [MomentCardModel]
+    let onCreateMoment: () -> Void
+    let onOpenMoment: (String) -> Void
     let onToggleFavorite: (String) -> Void
 
     var body: some View {
@@ -210,9 +273,18 @@ private struct RecentMomentsSection: View {
                     .foregroundStyle(Color.textPrimary)
                     .accessibilityIdentifier("pair_detail.recent_moments.title")
 
-                Spacer(minLength: 12)
+                Spacer(minLength: 10)
 
-                Button(action: {}) {
+                Text("\(moments.count)")
+                    .font(.custom("Geist-Bold", size: 12, relativeTo: .caption))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 24)
+                    .background(Color.appPrimary, in: Capsule())
+                    .accessibilityLabel(AppStrings.newMomentStep1MomentCount(count: moments.count))
+                    .accessibilityIdentifier("pair_detail.moments.count")
+
+                Button(action: onCreateMoment) {
                     ZStack {
                         Circle()
                             .fill(Color.appPrimary)
@@ -224,6 +296,7 @@ private struct RecentMomentsSection: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(AppStrings.pairDetailNewMomentButton)
+                .accessibilityIdentifier("pair_detail.new_moment")
             }
 
             ScrollView(.vertical, showsIndicators: true) {
@@ -231,6 +304,7 @@ private struct RecentMomentsSection: View {
                     ForEach(moments) { moment in
                         PairRecentMomentRow(
                             moment: moment,
+                            onOpen: { onOpenMoment(moment.id) },
                             onToggleFavorite: { onToggleFavorite(moment.id) }
                         )
                     }
@@ -244,28 +318,50 @@ private struct RecentMomentsSection: View {
 }
 
 private struct PairRecentMomentRow: View {
-    let moment: PairDetailMomentModel
+    let moment: MomentCardModel
+    let onOpen: () -> Void
     let onToggleFavorite: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text(moment.sourceTitle)
-                    Text(moment.episodeLabel)
-                    Text(moment.timestampLabel)
+        HStack(spacing: 14) {
+            Button(action: onOpen) {
+                HStack(spacing: 14) {
+                    Text(moment.momentDate.cardText())
+                        .font(.custom("Geist-Bold", size: 12, relativeTo: .caption))
+                        .foregroundStyle(Color.appPrimary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .frame(width: 54, alignment: .leading)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Text(moment.cardSourceLabel)
+                            if let episode = moment.episodeDisplayLabel {
+                                Text(episode)
+                            }
+                            if let context = MomentContextDisplayFormatter
+                                .compactSummary(for: moment)
+                                .trimmedOrNil {
+                                Text(context)
+                            }
+                        }
+                        .font(.custom("Geist-Medium", size: 11))
+                        .foregroundStyle(Color(hex: "#8888AA"))
+                        .lineLimit(1)
+
+                        Text(moment.displayHeading)
+                            .font(.custom("NotoSansJP-Thin_Medium", size: 14))
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+
+                    Spacer(minLength: 0)
                 }
-                .font(.custom("Geist-Medium", size: 11))
-                .foregroundStyle(Color(hex: "#8888AA"))
-
-                Text(moment.quote)
-                    .font(.custom("NotoSansJP-Thin_Medium", size: 14))
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                .contentShape(Rectangle())
             }
-
-            Spacer(minLength: 12)
+            .buttonStyle(.plain)
 
             Button(action: onToggleFavorite) {
                 FavoriteStarIcon(
@@ -276,12 +372,17 @@ private struct PairRecentMomentRow: View {
             }
             .buttonStyle(.plain)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.appPrimarySoft)
+            Button(action: onOpen) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appPrimarySoft)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppStrings.momentDetailTitle)
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 63)
         .glassCard(cornerRadius: 16, fillOpacity: 0.60)
+        .accessibilityIdentifier("pair_detail.moment.\(moment.id)")
     }
 }

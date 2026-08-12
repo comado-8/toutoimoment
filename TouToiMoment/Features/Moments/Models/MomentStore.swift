@@ -1,17 +1,30 @@
 import Combine
 import Foundation
+import OSLog
 import SwiftUI
 
 @MainActor
 final class MomentStore: ObservableObject {
     @Published private(set) var moments: [MomentCardModel]
+    @Published private(set) var persistenceError: Error?
+    private static let logger = Logger(subsystem: "TouToiMoment", category: "MomentStore")
     private let imageRepository: any MomentImageRepository
+    private let persistence: (any MomentStorePersistence)?
 
     init(
         moments: [MomentCardModel]? = nil,
-        imageRepository: any MomentImageRepository = LocalMomentImageRepository()
+        imageRepository: any MomentImageRepository = LocalMomentImageRepository(),
+        persistence: (any MomentStorePersistence)? = nil
     ) {
-        self.moments = moments ?? MomentCardModel.preview
+        self.persistence = persistence
+        let storedMoments = persistence?.load()
+        if let moments {
+            self.moments = moments
+        } else if persistence != nil {
+            self.moments = storedMoments ?? []
+        } else {
+            self.moments = MomentCardModel.preview
+        }
         self.imageRepository = imageRepository
         if moments == nil {
             Task { [weak self] in
@@ -67,6 +80,68 @@ final class MomentStore: ObservableObject {
             return
         }
         moments[index].isFavorite.toggle()
+        persist()
+    }
+
+    func updateSourceReference(
+        id sourceID: String,
+        displayName: String,
+        mediaType: String
+    ) {
+        for index in moments.indices where moments[index].sourceID == sourceID {
+            moments[index].sourceName = displayName
+            moments[index].mediaType = mediaType
+        }
+        persist()
+    }
+
+    func updatePairReference(
+        id pairID: String,
+        displayName: String,
+        member1Name: String,
+        member2Name: String?,
+        leadingColorHex: String,
+        trailingColorHex: String?
+    ) {
+        for index in moments.indices where moments[index].pairID == pairID {
+            moments[index].pairName = displayName
+            moments[index].pairMemberNames = [member1Name, member2Name]
+                .compactMap { $0 }
+            moments[index].leadingDotColor = Color(hex: leadingColorHex)
+            moments[index].trailingDotColor = Color(
+                hex: trailingColorHex ?? leadingColorHex
+            )
+        }
+        persist()
+    }
+
+    func clearPairReferences(id pairID: String) {
+        for index in moments.indices where moments[index].pairID == pairID {
+            moments[index].pairID = nil
+            moments[index].pairName = "—"
+            moments[index].pairMemberNames = []
+        }
+        persist()
+    }
+
+    func clearSourceReferences(id sourceID: String) {
+        for index in moments.indices where moments[index].sourceID == sourceID {
+            moments[index].sourceID = nil
+            moments[index].sourceName = "—"
+            moments[index].mediaType = nil
+            moments[index].episodeID = nil
+            moments[index].episodeLocatorValues = []
+        }
+        persist()
+    }
+
+    func detachEpisodeReferences(sourceID: String, episodeID: String) {
+        for index in moments.indices where
+            moments[index].sourceID == sourceID && moments[index].episodeID == episodeID {
+            moments[index].episodeID = nil
+            moments[index].episodeLocatorValues = []
+        }
+        persist()
     }
 
     func loadStoredImages() async {
@@ -78,6 +153,14 @@ final class MomentStore: ObservableObject {
             setImages(storedImages, for: id)
         }
         try? await imageRepository.removeOrphans(validMomentIDs: validIDs)
+    }
+
+    func reloadFromPersistence() async throws {
+        guard let stored = persistence?.load() else {
+            throw ManualBackupError.restoreFailed(reason: "moment-reload")
+        }
+        moments = stored
+        await loadStoredImages()
     }
 
     func imageData(for image: MomentImage, momentID: String) async throws -> Data {
@@ -132,45 +215,64 @@ final class MomentStore: ObservableObject {
         try await imageRepository.deleteImages(for: id)
         guard let index = moments.firstIndex(where: { $0.id == id }) else { return false }
         moments.remove(at: index)
+        persist()
         return true
     }
 
-    func add(draft: NewMomentDraft) {
-        let contextSummary = NewMomentContextSummaryFormatter.summary(for: draft)
+    func deleteAll() async throws {
+        let existingIDs = moments.map(\.id)
+        for id in existingIDs {
+            try await imageRepository.deleteImages(for: id)
+        }
+        moments.removeAll()
+        persist()
+        try await imageRepository.removeOrphans(validMomentIDs: Set<String>())
+    }
+
+    @discardableResult
+    func add(draft: NewMomentDraft, id: String = UUID().uuidString) -> MomentCardModel {
         let sourceName = draft.selectedSourceDisplayName ?? "—"
         let pairName = PairDisplayNameFormatter.normalized(
             draft.selectedPairDisplayName ?? "—"
         )
 
-        moments.insert(
-            MomentCardModel(
-                id: UUID().uuidString,
-                sceneText: MomentSceneTextPolicy.limited(draft.sceneSummary),
-                heartText: draft.heartScream,
-                caption: contextSummary.isEmpty ? sourceName : contextSummary,
-                pairID: draft.selectedPairID,
-                pairName: pairName,
-                sourceID: draft.selectedSourceID,
-                sourceName: sourceName,
-                mediaType: draft.selectedSource?.mediaType,
-                contextValues: MomentContextDisplayFormatter.contextValues(from: draft),
-                reactionIDs: draft.selectedReactions.map(\.id),
-                reactionLabels: draft.selectedReactions.map { reaction in
-                    ReactionCatalog.reaction(withID: reaction.id)?.displayText
-                        ?? reaction.displayText
-                },
-                images: [],
-                leadingDotColor: Color(hex: draft.selectedPair?.leadingColorHex ?? "#46C1B1"),
-                trailingDotColor: Color(
-                    hex: draft.selectedPair?.trailingColorHex
-                        ?? draft.selectedPair?.leadingColorHex
-                        ?? "#F26767"
-                ),
-                createdAt: Date(),
-                isFavorite: false
+        let moment = MomentCardModel(
+            id: id,
+            title: MomentTitlePolicy.normalized(draft.momentTitle),
+            sceneText: MomentSceneTextPolicy.limited(draft.sceneSummary),
+            heartText: HeartScreamTextPolicy.normalized(draft.heartScream),
+            caption: sourceName,
+            pairID: draft.selectedPairID,
+            pairName: pairName,
+            pairMemberNames: [
+                draft.selectedPair?.member1Name,
+                draft.selectedPair?.member2Name,
+            ].compactMap { $0 },
+            sourceID: draft.selectedSourceID,
+            sourceName: sourceName,
+            mediaType: draft.selectedSource?.mediaType,
+            episodeID: draft.selectedEpisodeID,
+            episodeLocatorValues: draft.selectedEpisode?.locatorValues ?? [],
+            contextValues: MomentContextDisplayFormatter.contextValues(from: draft),
+            reactionIDs: draft.selectedReactions.map(\.id),
+            reactionLabels: draft.selectedReactions.map { reaction in
+                ReactionCatalog.reaction(withID: reaction.id)?.displayText
+                    ?? reaction.displayText
+            },
+            images: [],
+            leadingDotColor: Color(hex: draft.selectedPair?.leadingColorHex ?? "#46C1B1"),
+            trailingDotColor: Color(
+                hex: draft.selectedPair?.trailingColorHex
+                    ?? draft.selectedPair?.leadingColorHex
+                    ?? "#F26767"
             ),
-            at: 0
+            momentDate: draft.momentDate,
+            createdAt: Date(),
+            isFavorite: false
         )
+        moments.insert(moment, at: 0)
+        persist()
+        return moment
     }
 
     @discardableResult
@@ -180,7 +282,6 @@ final class MomentStore: ObservableObject {
         }
 
         let original = moments[index]
-        let contextSummary = NewMomentContextSummaryFormatter.summary(for: draft)
         let sourceName = draft.selectedSourceDisplayName ?? "—"
         let pairName = PairDisplayNameFormatter.normalized(
             draft.selectedPairDisplayName ?? "—"
@@ -196,14 +297,21 @@ final class MomentStore: ObservableObject {
 
         moments[index] = MomentCardModel(
             id: original.id,
+            title: MomentTitlePolicy.normalized(draft.momentTitle),
             sceneText: MomentSceneTextPolicy.limited(draft.sceneSummary),
-            heartText: draft.heartScream,
-            caption: contextSummary.isEmpty ? sourceName : contextSummary,
+            heartText: HeartScreamTextPolicy.normalized(draft.heartScream),
+            caption: sourceName,
             pairID: draft.selectedPairID,
             pairName: pairName,
+            pairMemberNames: [
+                draft.selectedPair?.member1Name,
+                draft.selectedPair?.member2Name,
+            ].compactMap { $0 },
             sourceID: draft.selectedSourceID,
             sourceName: sourceName,
             mediaType: draft.selectedSource?.mediaType,
+            episodeID: draft.selectedEpisodeID,
+            episodeLocatorValues: draft.selectedEpisode?.locatorValues ?? [],
             contextValues: MomentContextDisplayFormatter.contextValues(from: draft),
             reactionIDs: draft.selectedReactions.map(\.id),
             reactionLabels: draft.selectedReactions.map { reaction in
@@ -213,9 +321,11 @@ final class MomentStore: ObservableObject {
             images: original.images,
             leadingDotColor: leadingColor,
             trailingDotColor: trailingColor,
+            momentDate: draft.momentDate,
             createdAt: original.createdAt,
             isFavorite: original.isFavorite
         )
+        persist()
         return true
     }
 
@@ -235,6 +345,17 @@ final class MomentStore: ObservableObject {
     private func setImages(_ images: [MomentImage], for momentID: String) {
         guard let index = moments.firstIndex(where: { $0.id == momentID }) else { return }
         moments[index].images = images.sorted { $0.order < $1.order }
+        persist()
+    }
+
+    private func persist() {
+        do {
+            try persistence?.save(moments)
+            persistenceError = nil
+        } catch {
+            persistenceError = error
+            Self.logger.error("Failed to persist moments: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
 

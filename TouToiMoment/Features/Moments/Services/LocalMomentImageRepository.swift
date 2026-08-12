@@ -258,7 +258,7 @@ actor LocalMomentImageRepository: MomentImageRepository {
             .replacingOccurrences(of: "=", with: "")
     }
 
-    private static func defaultRootURL(fileManager: FileManager) -> URL {
+    static func defaultRootURL(fileManager: FileManager) -> URL {
         let applicationSupport = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask

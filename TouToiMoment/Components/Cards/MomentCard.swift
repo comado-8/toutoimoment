@@ -107,10 +107,23 @@ struct MomentCard: View {
                 .blur(radius: 12.3)
 
             VStack(spacing: 0) {
-                HStack(spacing: 5) {
-                    PairColorDot(color: model.leadingDotColor)
-                    PairColorDot(color: model.trailingDotColor)
+                ZStack {
+                    HStack(spacing: 5) {
+                        PairColorDot(color: model.leadingDotColor)
+                        PairColorDot(color: model.trailingDotColor)
+                    }
+
+                    if layout == .momentGrid {
+                        HStack {
+                            Text(model.momentDate.cardText())
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color.appPrimary.opacity(0.88))
+                                .lineLimit(1)
+                            Spacer()
+                        }
+                    }
                 }
+                .padding(.horizontal, 10)
                 .padding(.top, 15)
 
                 Spacer(minLength: 0)
@@ -120,7 +133,7 @@ struct MomentCard: View {
                 Spacer(minLength: 0)
 
                 HStack(alignment: .bottom, spacing: 8) {
-                    Text(model.caption)
+                    Text(model.cardSourceLabel)
                         .font(AppTypography.momentCardCaption())
                         .foregroundStyle(Color.appPrimary.opacity(0.85))
                         .lineLimit(1)
@@ -128,7 +141,7 @@ struct MomentCard: View {
 
                     Spacer(minLength: 8)
 
-                    Text(model.episodeLabel)
+                    Text(model.cardLocationLabel)
                         .font(AppTypography.momentCardEpisode())
                         .foregroundStyle(Color.appPrimary.opacity(0.85))
                         .lineLimit(1)
@@ -311,7 +324,7 @@ struct MomentCard: View {
     }
 
     private func displayedText(for requestedFace: MomentFace) -> String {
-        let value = requestedFace == .scene ? model.sceneText : model.heartText
+        let value = requestedFace == .scene ? model.displayHeading : model.heartText
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "—" : value
     }
@@ -478,7 +491,7 @@ private struct PairColorDot: View {
             .overlay {
                 Circle()
                     .inset(by: 0.5)
-                    .stroke(Color.white.opacity(0.72), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.14), lineWidth: 0.75)
             }
             .shadow(color: Color.white.opacity(0.16), radius: 1.5)
     }

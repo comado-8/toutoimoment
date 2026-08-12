@@ -1,10 +1,21 @@
 import SwiftUI
 
 struct PairListView: View {
+    let repository: any PairRepository
     var onSelectPair: (PairListCardModel) -> Void = { _ in }
 
     @State private var selectedFilter: PairListFilter = .all
     @State private var pairs = PairListPreviewData.pairs
+    @State private var isNewPairPresented = false
+    @State private var mutationErrorMessage: String?
+
+    init(
+        repository: any PairRepository = InMemoryPairRepository(),
+        onSelectPair: @escaping (PairListCardModel) -> Void = { _ in }
+    ) {
+        self.repository = repository
+        self.onSelectPair = onSelectPair
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -33,6 +44,27 @@ struct PairListView: View {
                 .spring(duration: 0.34, bounce: 0.15),
                 value: pairs.map(\.isFavorite)
             )
+        }
+        .task { await reloadPairsReportingFailure() }
+        .onAppear { Task { await reloadPairsReportingFailure() } }
+        .sheet(isPresented: $isNewPairPresented) {
+            PairEditorSheet(
+                createAction: { request in
+                    try await repository.createPair(request: request)
+                },
+                onCreated: { _ in
+                    Task { await reloadPairsReportingFailure() }
+                }
+            )
+        }
+        .alert(
+            AppStrings.pairDetailMutationError,
+            isPresented: Binding(
+                get: { mutationErrorMessage != nil },
+                set: { if !$0 { mutationErrorMessage = nil } }
+            )
+        ) {
+            Button(AppStrings.commonOK, role: .cancel) {}
         }
     }
 
@@ -67,7 +99,9 @@ struct PairListView: View {
 
     private var pairList: some View {
         VStack(spacing: 10) {
-            NewPairCard()
+            NewPairCard {
+                isNewPairPresented = true
+            }
                 .accessibilityIdentifier("pairs.new_pair")
 
             ForEach(displayedPairs) { pair in
@@ -92,11 +126,37 @@ struct PairListView: View {
     }
 
     private func toggleFavorite(id: String) {
-        guard let index = pairs.firstIndex(where: { $0.id == id }) else {
-            return
+        Task {
+            do {
+                try await repository.toggleFavorite(id: id)
+                try await reloadPairs()
+            } catch {
+                mutationErrorMessage = AppStrings.pairDetailMutationError
+            }
         }
+    }
 
-        pairs[index].isFavorite.toggle()
+    private func reloadPairs() async throws {
+        let summaries = try await repository.fetchPairs()
+        pairs = summaries.map {
+            PairListCardModel(
+                id: $0.id,
+                displayName: $0.displayName,
+                nickname: $0.subtitle,
+                momentCount: $0.momentCount,
+                leadingColor: Color(hex: $0.leadingColorHex),
+                trailingColor: $0.trailingColorHex.map { Color(hex: $0) },
+                isFavorite: $0.isFavorite
+            )
+        }
+    }
+
+    private func reloadPairsReportingFailure() async {
+        do {
+            try await reloadPairs()
+        } catch {
+            mutationErrorMessage = AppStrings.pairDetailMutationError
+        }
     }
 }
 
@@ -145,8 +205,10 @@ private struct FilterChip: View {
 }
 
 private struct NewPairCard: View {
+    let action: () -> Void
+
     var body: some View {
-        Button(action: {}) {
+        Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .medium))

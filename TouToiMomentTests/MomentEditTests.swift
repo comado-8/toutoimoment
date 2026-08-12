@@ -15,7 +15,9 @@ struct MomentEditTests {
         #expect(draft.selectedPairID == moment.pairID)
         #expect(draft.selectedSourceID == moment.sourceID)
         #expect(draft.selectedSource?.mediaType == moment.mediaType)
-        #expect(draft.contextValues.map(\.key) == ["episode", "timestamp"])
+        #expect(draft.selectedEpisode?.displayName == "第3話")
+        #expect(draft.contextValues.map(\.key) == ["timestamp"])
+        #expect(draft.momentTitle == (moment.title ?? ""))
         #expect(draft.sceneSummary == moment.sceneText)
         #expect(draft.heartScream == moment.heartText)
         #expect(draft.selectedReactions.map(\.id) == ["legacy.custom"])
@@ -33,12 +35,11 @@ struct MomentEditTests {
         #expect(!viewModel.hasChanges)
         #expect(!viewModel.canSave)
 
-        viewModel.updateScene("変更後のScene")
+        viewModel.updateHeart("変更後のHeartScream")
 
         #expect(viewModel.hasChanges)
         #expect(viewModel.canSave)
 
-        viewModel.updateScene("  ")
         viewModel.updateHeart("\n")
         #expect(!viewModel.canSave)
     }
@@ -53,12 +54,39 @@ struct MomentEditTests {
         await viewModel.loadOptionsIfNeeded()
 
         viewModel.selectSource(id: moment.sourceID)
-        #expect(viewModel.value(for: "episode") == "3")
+        #expect(viewModel.draft.selectedEpisode?.displayName == "第3話")
         #expect(viewModel.value(for: "timestamp") == "00:18:42")
 
         viewModel.selectSource(id: "yt-live-2026-07-01")
         #expect(viewModel.draft.selectedSourceID == "yt-live-2026-07-01")
         #expect(viewModel.draft.contextValues.allSatisfy { $0.value.isEmpty })
+    }
+
+    @Test func editCanLoadSelectAndCreateEpisodesThroughTheSharedRepository() async throws {
+        let viewModel = MomentEditViewModel(
+            moment: makeMoment(),
+            pairRepository: InMemoryPairRepository(),
+            sourceRepository: InMemorySourceRepository()
+        )
+        await viewModel.loadOptionsIfNeeded()
+        viewModel.selectSource(id: "solo-leveling")
+        await viewModel.loadEpisodes()
+
+        let existing = try #require(viewModel.episodes.first)
+        viewModel.selectEpisode(id: existing.id)
+        #expect(viewModel.draft.selectedEpisodeID == existing.id)
+
+        let created = try await viewModel.createEpisode(
+            EpisodeCreateRequest(
+                locatorValues: [
+                    .init(key: "episode_kind", value: "regular"),
+                    .init(key: "episode", value: "9"),
+                ],
+                relatedURL: nil
+            )
+        )
+        #expect(viewModel.episodes.first?.id == created.id)
+        #expect(viewModel.draft.selectedEpisode?.displayName == "第9話")
     }
 
     @Test func storeUpdatePreservesIdentityFavoriteDateAndOrder() {
@@ -115,10 +143,22 @@ struct MomentEditTests {
         #expect(MomentSceneTextPolicy.counterText(for: String(repeating: "a", count: 900)) == "900 / 1000")
     }
 
+    @Test func momentTitlePolicyLimitsByCharactersAndShowsCounterNearLimit() {
+        var draft = NewMomentDraft()
+        draft.updateMomentTitle(String(repeating: "尊", count: 21))
+        #expect(draft.momentTitle.count == 20)
+        #expect(!MomentTitlePolicy.shouldShowCounter(for: String(repeating: "a", count: 14)))
+        #expect(MomentTitlePolicy.shouldShowCounter(for: String(repeating: "a", count: 15)))
+
+        draft.updateMomentTitle("  ")
+        #expect(MomentTitlePolicy.normalized(draft.momentTitle) == nil)
+    }
+
     @Test func draftAndStoreKeepSceneWithinTheSharedLimit() {
         let overLimit = String(repeating: "Scene", count: 250) + "extra"
         var draft = NewMomentDraft(sceneSummary: overLimit)
-        #expect(draft.sceneSummary.count == MomentSceneTextPolicy.maximumLength)
+        #expect(draft.sceneSummary == overLimit)
+        #expect(!draft.isWithinTextLimits)
 
         draft.updateSceneSummary(overLimit + "more")
         #expect(draft.sceneSummary.count == MomentSceneTextPolicy.maximumLength)
@@ -145,8 +185,12 @@ struct MomentEditTests {
             sourceID: "source-school-trip",
             sourceName: "修学旅行で仲良くないグループに...",
             mediaType: "anime",
-            contextValues: [
+            episodeID: "episode-3",
+            episodeLocatorValues: [
+                .init(key: "episode_kind", value: "regular"),
                 .init(key: "episode", value: "3"),
+            ],
+            contextValues: [
                 .init(key: "timestamp", value: "00:18:42"),
             ],
             reactionIDs: reactionIDs,
