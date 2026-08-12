@@ -1,0 +1,84 @@
+name: toutoi-unit-tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: toutoi-unit-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: toutoi-unit-tests
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26.6
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Resolve iPhone 17 simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIMULATOR_UDID="$({ xcrun simctl list devices available; } | awk '
+            /-- iOS 26\.5 --/ { in_runtime = 1; next }
+            /^-- / { in_runtime = 0 }
+            in_runtime && /iPhone 17 \(/ {
+              if (match($0, /[0-9A-F-]{36}/)) {
+                print substr($0, RSTART, RLENGTH)
+                exit
+              }
+            }
+          ')"
+          if [[ -z "$SIMULATOR_UDID" ]]; then
+            echo "No available iPhone 17 simulator for iOS 26.5" >&2
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "udid=$SIMULATOR_UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+
+      - name: Run unit tests
+        run: |
+          mkdir -p artifacts
+          xcodebuild test \
+            -project TouToiMoment.xcodeproj \
+            -scheme TouToiMoment \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -only-testing:TouToiMomentTests \
+            -parallel-testing-enabled NO \
+            -maximum-parallel-testing-workers 1 \
+            -enableCodeCoverage YES \
+            -resultBundlePath artifacts/toutoi-unit-tests.xcresult
+
+      - name: Write coverage summary
+        if: always()
+        run: |
+          mkdir -p artifacts
+          ruby .github/scripts/write-coverage-summary.rb \
+            artifacts/toutoi-unit-tests.xcresult \
+            artifacts/coverage-summary.md
+          cat artifacts/coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload unit-test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toutoi-unit-tests-${{ github.run_attempt }}
+          path: |
+            artifacts/toutoi-unit-tests.xcresult
+            artifacts/coverage-summary.md
+            artifacts/coverage-report.json
+          if-no-files-found: warn
+          retention-days: 14
